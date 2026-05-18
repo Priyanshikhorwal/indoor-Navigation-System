@@ -4,6 +4,7 @@ import com.project.entity.Location;
 import com.project.entity.PathConnection;
 import com.project.repository.LocationRepository;
 import com.project.repository.PathConnectionRepository;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -18,9 +19,9 @@ public class NavigationService {
 
     public List<Location> findShortestPathAStar(Long sourceId, Long destinationId) {
         Location source = locationRepository.findById(sourceId)
-                .orElseThrow(() -> new RuntimeException("Source not found"));
+                .orElseThrow(() -> new EntityNotFoundException("Source not found with id: " + sourceId));
         Location destination = locationRepository.findById(destinationId)
-                .orElseThrow(() -> new RuntimeException("Destination not found"));
+                .orElseThrow(() -> new EntityNotFoundException("Destination not found with id: " + destinationId));
 
         List<PathConnection> allConnections = pathConnectionRepository.findAll();
 
