@@ -1,0 +1,189 @@
+================================================================================
+INDOOR NAVIGATION SYSTEM - PROJECT STATUS, BLUEPRINT & ROADMAP
+================================================================================
+
+This document details the current state, technical gaps, recommended UI/UX 
+improvements, and the overall operational flow of the Indoor Navigation 
+System project.
+
+--------------------------------------------------------------------------------
+1. CURRENT FEATURES
+--------------------------------------------------------------------------------
+
+A. BACKEND SYSTEM (Spring Boot + PostgreSQL + Hibernate + Spring Security)
+   - A* Pathfinding Engine: Computes the mathematically shortest path between 
+     two locations in an undirected graph using the A* Search Algorithm. 
+     Uses Euclidean distance as the heuristic based on node X, Y coordinates:
+     Heuristic (a, b) = sqrt((x_a - x_b)^2 + (y_a - y_b)^2).
+   - Location API (CRUD): REST endpoints under '/api/locations' supporting 
+     full CRUD capability (GET, POST, PUT, DELETE) to manage map locations 
+     (nodes).
+   - JWT Secure Authentication: Admin registration and login system under 
+     '/api/auth/register' and '/api/auth/login'. Automatically assigns 
+     'ROLE_ADMIN' roles and issues secure, time-limited JSON Web Tokens.
+   - Spring Security Layer: Configures authorization rules to secure sensitive 
+     admin mutation operations while exposing public authentication and 
+     pathfinding endpoints.
+   - CORS Integration: Allows seamless backend-frontend communication across 
+     origins (e.g., local React server on port 5173 connecting to Spring Boot 
+     on port 8080).
+   - Database Architecture: Uses JPA/Hibernate with automatic schema updates 
+     (spring.jpa.hibernate.ddl-auto=update) mapping 'users', 'locations', 
+     and 'path_connections'.
+
+B. FRONTEND INTERFACE (React + Vite + Tailwind CSS + Lucide Icons)
+   - Elegant Home Screen: A polished, responsive hero landing page highlighting 
+     key platform advantages, modern tech stack tags, and instant CTAs.
+   - Route Navigation Interface: Public page containing interactive selects to 
+     choose current location (source) and destination. Employs async fetching, 
+     error dialogs, and loaders.
+   - Step-by-Step Stepper: A visual, color-coded timeline illustrating the exact 
+     ordered rooms/nodes to traverse, distinguishing source (green), 
+     destination (coral red), and intermediate hallway intersections (blue).
+   - Admin Login Screen: Elegant auth portal managing credential validation and 
+     storing JWT keys inside localStorage.
+   - Admin Dashboard: Form-driven UI allowing authorized administrators to add 
+     new locations (specifying X/Y coords, description, floor name) and delete 
+     outdated rooms.
+   - Protected Routes: Guards admin routes to prevent unauthorized guests from 
+     tampering with the backend map layout.
+
+--------------------------------------------------------------------------------
+2. MISSING FEATURES & TECHNICAL GAPS
+--------------------------------------------------------------------------------
+
+- NO PATH CONNECTION (EDGE) REST CONTROLLER OR ADMIN UI:
+  While the A* search algorithm relies heavily on the 'path_connections' database 
+  table to navigate, there is currently NO REST Controller to create, read, 
+  update, or delete these edges. Admins have no frontend dashboard to connect 
+  rooms (e.g., link Room 101 to Corridor A). These edges must be manually inserted 
+  directly into the PostgreSQL database via raw SQL, which blocks non-technical 
+  map maintenance.
+  
+- CRITICAL SECURITY / ACCESS BUG (LOCATION FETCHING FOR GUESTS):
+  In 'SecurityConfig.java', all requests that are not '/api/auth/**' or 
+  '/api/path/**' require active JWT authentication. This means guest users 
+  accessing the public '/navigate' page will receive a '401 Unauthorized' 
+  status when the frontend attempts to run 'api.get("/locations")' to populate 
+  the source/destination dropdowns. 
+  *Fix Required*: Expose public 'GET /api/locations' while securing 'POST', 
+  'PUT', and 'DELETE' under Admin credentials.
+
+- NO VISUAL INTERACTIVE MAP / BLUEPRINT: DONE ✅
+  The public pathway portal 'Navigation.jsx' now contains a state-of-the-art 
+  interactive visual graph map. It normalizes coordinates automatically, filters 
+  rooms by floor elevation levels, provides customized floating hover tooltips, 
+  supports direct point-and-click selection for source and destination, and renders 
+  pathfinding steps dynamically using animated glowing dash arrays.
+
+- LOCATION UPDATE (EDIT) COMPONENT IN FRONTEND: DONE ✅
+  The frontend 'AdminDashboard.jsx' now has complete, modern location editing capabilities. 
+  Admins can click the Edit icon next to any location to open a centered modal 
+  pre-populated with coordinate, floor, and description values, making direct PUT 
+  updates to the PostgreSQL database with input validations.
+
+- ABSENCE OF DYNAMIC NODE-TO-NODE DISTANCE CALCULATION:
+  The distance (weight) of a 'path_connection' edge must be manually input or 
+  assigned. The backend should automatically compute the Euclidean distance 
+  between the source and destination coordinates to populate the connection 
+  weight whenever a link is made, minimizing human input errors.
+
+- SEARCH & FILTER ON ADMIN DASHBOARD: DONE ✅
+  The admin panel now includes sleek search inputs and floor filter selectors. 
+  Admins can dynamically search locations by name or description (case-insensitive) 
+  and filter by floor. Unique floor filter options are dynamically populated from 
+  the active locations database.
+
+--------------------------------------------------------------------------------
+3. REQUIRED UI IMPROVEMENTS
+--------------------------------------------------------------------------------
+
+- INTERACTIVE GRAPH / CANVAS MAP: DONE ✅
+  Embed an SVG or HTML5 Canvas element mapping (X, Y) coordinates of rooms. 
+  Draw paths as connections and animate the computed path using colored flow 
+  lines or pulse points to represent real-time walking direction.
+
+- IMAGE-OVERLAY MAP BUILDER: DONE ✅
+  The Path Connections dashboard in 'AdminDashboard.jsx' now supports dynamic 
+  blueprint underlays by pasting any Floor Plan Image URL directly. Admins can 
+  position room pins visually on top of the image using high-performance drag-and-drop 
+  pointer controls. Releasing a pin automatically computes reversed ground coordinate bounds 
+  and commits the changes immediately to PostgreSQL via PUT REST endpoints!
+
+- ENHANCED TIMELINE AND MULTI-FLOOR TRANSITION BADGES: DONE ✅
+  The route timeline in 'Navigation.jsx' now dynamically detects when adjacent 
+  path nodes switch floor values, inserting gorgeous alert cards directing guests to 
+  change elevation levels (e.g. "Take Stairs / Elevator up to Floor 2") with active climbing animations.
+
+- SPLIT DASHBOARD LAYOUT: DONE ✅
+  The Admin Dashboard now features dynamic Tab selector headers:
+  - Tab 1: Manage Locations (Full-width searchable location table and slide-down room editors)
+  - Tab 2: Path Connections & SQL Generator (Interactive point-and-click spatial SVG map that computes Euclidean distances and auto-generates copyable SQL INSERT seed statements)
+
+- SMOOTH TRANSITIONS & MICRO-ANIMATIONS: DONE ✅
+  Incorporate subtle hover states, loader animations, and fade-in transitions 
+  for path results using CSS or Framer Motion to deliver a premium user experience.
+
+--------------------------------------------------------------------------------
+4. OVERALL PROJECT FLOW
+--------------------------------------------------------------------------------
+
+  +-----------------------+      Registers/Logs In      +--------------------+
+  |      Admin User       | --------------------------> |    Auth API        |
+  | (Map Builder UI)      | <-------------------------- | (/api/auth/login)  |
+  +-----------------------+         JWT Token           +--------------------+
+             |
+             | Adds Locations (POST /api/locations)
+             v
+  +-----------------------+
+  | PostgreSQL Database   | <--- Holds: users, locations, path_connections
+  +-----------------------+
+             ^
+             | Fetches coordinates & connection graph
+             v
+  +-----------------------+
+  |  Navigation Service   | <--- Reconstructs undirected graph in memory
+  |   (A* Algorithm)      | <--- Calculates Euclidean Heuristic for expansion
+  +-----------------------+
+             ^
+             | Queries optimal route (GET /api/path/find)
+             | Responds with ordered location list
+             v
+  +-----------------------+
+  |      Guest User       | <--- Selects Source & Destination rooms
+  |   (Public Web UI)     | <--- Views step-by-step colored route stepper
+  +-----------------------+
+
+1. SEEDING & SETUP:
+   - PostgreSQL schema is generated.
+   - Admin account is registered or logged in via backend endpoints. The React 
+     frontend stores the admin's JWT token in localStorage for session state.
+
+2. GRAPH DEFINITION (ADMINISTRATOR FLOW):
+   - Admin logs into the Admin Dashboard page.
+   - Admin submits locations via the POST API. These represent nodes in the graph 
+     containing geometric coordinates (X, Y) and structural information (Floor, Description).
+   - Admin links locations together. (Currently done by executing SQL INSERT 
+     queries on the 'path_connections' database table, representing edges).
+
+3. PATH CALCULATIONS (USER FLOW):
+   - Visitor navigates to the public '/navigate' route.
+   - React frontend makes a GET request to '/api/locations' (currently blocked, 
+     requires fix) to fetch list of rooms and populate select lists.
+   - Visitor selects a Start Location and an End Location and clicks "Find Shortest Path".
+   - Frontend sends GET request to '/api/path/find?sourceId=X&destinationId=Y'.
+
+4. SHORTEST PATH RESOLUTION (BACKEND A* FLOW):
+   - 'NavigationController' routes request to 'NavigationService.findShortestPathAStar'.
+   - Service fetches all connections from repository and builds an Adjacency List.
+   - PriorityQueue is initialized sorted by fScore = gScore (actual cost) + hScore (heuristic).
+   - Dijkstra-like expansion begins, using Euclidean distance between node coordinates 
+     as the hScore heuristic.
+   - Parents are tracked in a 'cameFrom' map.
+   - Once target node is reached, the path is compiled back to source and returned.
+
+5. ROAD GUIDANCE RENDERING:
+   - Ordered list of location nodes is returned to React.
+   - The frontend renders the list in a modern timeline, giving clear step-by-step 
+     directions to the destination.
+================================================================================
