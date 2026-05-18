@@ -6,6 +6,7 @@ import com.project.entity.PathConnection;
 import com.project.repository.LocationRepository;
 import com.project.repository.PathConnectionRepository;
 import jakarta.persistence.EntityNotFoundException;
+import org.springframework.cache.annotation.CacheEvict;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -22,6 +23,7 @@ public class PathConnectionService {
         return pathConnectionRepository.findAll();
     }
 
+    @CacheEvict(value = "graph", allEntries = true)
     public PathConnection createConnection(PathConnectionDto dto) {
         Location source = locationRepository.findById(dto.getSourceLocationId())
                 .orElseThrow(() -> new EntityNotFoundException("Source location not found with id: " + dto.getSourceLocationId()));
@@ -34,10 +36,12 @@ public class PathConnectionService {
         connection.setSourceLocation(source);
         connection.setDestinationLocation(destination);
         connection.setDistance(distance);
+        connection.setIsAccessible(dto.getIsAccessible());
 
         return pathConnectionRepository.save(connection);
     }
 
+    @CacheEvict(value = "graph", allEntries = true)
     public void deleteConnection(Long id) {
         if (!pathConnectionRepository.existsById(id)) {
             throw new EntityNotFoundException("Path connection not found with id: " + id);

@@ -17,4 +17,6 @@ public class PathConnectionDto {
     private Long destinationLocationId;
 
     private Double distance; // Optional. If null, we calculate it
+
+    private Boolean isAccessible = true; // Default to true
 }

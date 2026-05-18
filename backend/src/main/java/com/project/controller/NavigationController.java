@@ -18,9 +18,10 @@ public class NavigationController {
     @GetMapping("/find")
     public ResponseEntity<List<Location>> findShortestPath(
             @RequestParam Long sourceId,
-            @RequestParam Long destinationId) {
+            @RequestParam Long destinationId,
+            @RequestParam(defaultValue = "false") boolean wheelchairAccessible) {
         
-        List<Location> path = navigationService.findShortestPathAStar(sourceId, destinationId);
+        List<Location> path = navigationService.findShortestPathAStar(sourceId, destinationId, wheelchairAccessible);
         return ResponseEntity.ok(path);
     }
 }
