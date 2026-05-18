@@ -31,13 +31,14 @@ public class SecurityConfig {
                 .cors().and()
                 .csrf().disable()
                 .authorizeHttpRequests()
-                // Allow auth, pathfinding APIs
-                .requestMatchers("/api/auth/**", "/api/path/**").permitAll()
-                // Allow static resources for integrated frontend
-                .requestMatchers("/", "/index.html", "/assets/**", "/vite.svg", "/favicon.ico").permitAll()
-                // Allow all other routes to fall through to frontend routing if not matched by API (handled by error controller usually, but safe here)
-                .requestMatchers("/**").permitAll() 
-                .anyRequest().authenticated()
+                // Allow login and public pathfinding APIs
+                .requestMatchers("/api/auth/login", "/api/path/**").permitAll()
+                // Secure map management APIs and registration
+                .requestMatchers("/api/locations/**", "/api/connections/**", "/api/auth/register").authenticated()
+                // Catch-all to ensure any other /api/** routes are authenticated
+                .requestMatchers("/api/**").authenticated()
+                // Allow static resources and SPA routing
+                .anyRequest().permitAll()
                 .and()
                 .sessionManagement()
                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
