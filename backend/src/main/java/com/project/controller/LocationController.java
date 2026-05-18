@@ -2,6 +2,8 @@ package com.project.controller;
 
 import com.project.entity.Location;
 import com.project.repository.LocationRepository;
+import jakarta.persistence.EntityNotFoundException;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -21,14 +23,14 @@ public class LocationController {
     }
 
     @PostMapping
-    public ResponseEntity<Location> createLocation(@RequestBody Location location) {
+    public ResponseEntity<Location> createLocation(@Valid @RequestBody Location location) {
         return ResponseEntity.ok(locationRepository.save(location));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Location> updateLocation(@PathVariable Long id, @RequestBody Location locationDetails) {
+    public ResponseEntity<Location> updateLocation(@PathVariable Long id, @Valid @RequestBody Location locationDetails) {
         Location location = locationRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Location not found"));
+                .orElseThrow(() -> new EntityNotFoundException("Location not found with id: " + id));
 
         location.setName(locationDetails.getName());
         location.setDescription(locationDetails.getDescription());
@@ -41,6 +43,9 @@ public class LocationController {
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteLocation(@PathVariable Long id) {
+        if (!locationRepository.existsById(id)) {
+            throw new EntityNotFoundException("Location not found with id: " + id);
+        }
         locationRepository.deleteById(id);
         return ResponseEntity.ok().build();
     }
