@@ -26,4 +26,7 @@ public class PathConnection {
 
     @Column(nullable = false)
     private Double distance;
+
+    @Column(nullable = false)
+    private Boolean isAccessible = true;
 }

@@ -4,6 +4,8 @@ import com.project.entity.Location;
 import com.project.entity.PathConnection;
 import com.project.repository.LocationRepository;
 import com.project.repository.PathConnectionRepository;
+import jakarta.persistence.EntityNotFoundException;
+import org.springframework.cache.annotation.Cacheable;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -16,22 +18,26 @@ public class NavigationService {
     private final LocationRepository locationRepository;
     private final PathConnectionRepository pathConnectionRepository;
 
-    public List<Location> findShortestPathAStar(Long sourceId, Long destinationId) {
-        Location source = locationRepository.findById(sourceId)
-                .orElseThrow(() -> new RuntimeException("Source not found"));
-        Location destination = locationRepository.findById(destinationId)
-                .orElseThrow(() -> new RuntimeException("Destination not found"));
-
+    @Cacheable("graph")
+    public Map<Location, List<Edge>> getGraphAdjacencyList() {
         List<PathConnection> allConnections = pathConnectionRepository.findAll();
-
-        // Building Adjacency List
         Map<Location, List<Edge>> graph = new HashMap<>();
         for (PathConnection pc : allConnections) {
             graph.computeIfAbsent(pc.getSourceLocation(), k -> new ArrayList<>())
-                 .add(new Edge(pc.getDestinationLocation(), pc.getDistance()));
+                 .add(new Edge(pc.getDestinationLocation(), pc.getDistance(), pc.getIsAccessible()));
             graph.computeIfAbsent(pc.getDestinationLocation(), k -> new ArrayList<>())
-                 .add(new Edge(pc.getSourceLocation(), pc.getDistance())); // Undirected graph
+                 .add(new Edge(pc.getSourceLocation(), pc.getDistance(), pc.getIsAccessible())); // Undirected graph
         }
+        return graph;
+    }
+
+    public List<Location> findShortestPathAStar(Long sourceId, Long destinationId, boolean wheelchairAccessible) {
+        Location source = locationRepository.findById(sourceId)
+                .orElseThrow(() -> new EntityNotFoundException("Source not found with id: " + sourceId));
+        Location destination = locationRepository.findById(destinationId)
+                .orElseThrow(() -> new EntityNotFoundException("Destination not found with id: " + destinationId));
+
+        Map<Location, List<Edge>> graph = getGraphAdjacencyList();
 
         // A* Algorithm
         PriorityQueue<Node> openSet = new PriorityQueue<>(Comparator.comparingDouble(n -> n.fScore));
@@ -50,6 +56,9 @@ public class NavigationService {
             }
 
             for (Edge neighbor : graph.getOrDefault(current.location, Collections.emptyList())) {
+                if (wheelchairAccessible && !neighbor.isAccessible) {
+                    continue; // Skip inaccessible edges for wheelchair routing
+                }
                 double tentativeGScore = gScore.getOrDefault(current.location, Double.MAX_VALUE) + neighbor.weight;
 
                 if (tentativeGScore < gScore.getOrDefault(neighbor.location, Double.MAX_VALUE)) {
@@ -84,9 +93,11 @@ public class NavigationService {
     private static class Edge {
         Location location;
         double weight;
-        Edge(Location location, double weight) {
+        boolean isAccessible;
+        Edge(Location location, double weight, boolean isAccessible) {
             this.location = location;
             this.weight = weight;
+            this.isAccessible = isAccessible;
         }
     }
 
