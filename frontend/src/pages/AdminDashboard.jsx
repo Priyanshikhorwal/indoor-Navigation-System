@@ -5,6 +5,7 @@ import { Plus, Trash2, Edit, Compass, Database, Check, Copy, AlertCircle, Sparkl
 
 const AdminDashboard = () => {
     const [locations, setLocations] = useState([]);
+    const [connections, setConnections] = useState([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('locations'); // 'locations' or 'connections'
     const [showAddForm, setShowAddForm] = useState(false);
@@ -34,8 +35,23 @@ const AdminDashboard = () => {
     const [success, setSuccess] = useState('');
 
     useEffect(() => {
-        fetchLocations();
+        fetchData();
     }, []);
+
+    const fetchData = async () => {
+        try {
+            const [locRes, connRes] = await Promise.all([
+                api.get('/locations'),
+                api.get('/connections')
+            ]);
+            setLocations(locRes.data);
+            setConnections(connRes.data);
+        } catch (err) {
+            setError('Failed to fetch data');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const fetchLocations = async () => {
         try {
@@ -43,8 +59,15 @@ const AdminDashboard = () => {
             setLocations(res.data);
         } catch (err) {
             setError('Failed to fetch locations');
-        } finally {
-            setLoading(false);
+        }
+    };
+
+    const fetchConnections = async () => {
+        try {
+            const res = await api.get('/connections');
+            setConnections(res.data);
+        } catch (err) {
+            setError('Failed to fetch connections');
         }
     };
 
@@ -107,10 +130,38 @@ const AdminDashboard = () => {
         }
     };
 
-    const handleCopySql = (sqlText) => {
-        navigator.clipboard.writeText(sqlText);
-        setSqlCopySuccess(true);
-        setTimeout(() => setSqlCopySuccess(false), 2000);
+    const handleCreateConnection = async () => {
+        if (!startNode || !endNode) return;
+        try {
+            const distance = calculateDistance(startNode, endNode);
+            await api.post('/connections', {
+                sourceLocationId: startNode.id,
+                destinationLocationId: endNode.id,
+                distance: parseFloat(distance),
+                isAccessible: true
+            });
+            setSuccess('Path connection created successfully!');
+            setTimeout(() => setSuccess(''), 3000);
+            setStartNode(null);
+            setEndNode(null);
+            fetchConnections();
+        } catch (err) {
+            setError(err.response?.data?.message || 'Failed to create connection.');
+            setTimeout(() => setError(''), 3000);
+        }
+    };
+
+    const handleDeleteConnection = async (connId) => {
+        if(!window.confirm('Delete this path connection?')) return;
+        try {
+            await api.delete(`/connections/${connId}`);
+            fetchConnections();
+            setSuccess('Connection deleted.');
+            setTimeout(() => setSuccess(''), 3000);
+        } catch (err) {
+            setError('Failed to delete connection.');
+            setTimeout(() => setError(''), 3000);
+        }
     };
 
     // Coordinate scale reversals for drag-and-drop mapper
@@ -209,10 +260,6 @@ const AdminDashboard = () => {
 
     if (loading) return <Loader />;
 
-    // Auto generated SQL script block
-    const calculatedWeight = calculateDistance(startNode, endNode);
-    const generatedSql = startNode && endNode ? `INSERT INTO path_connections (id, source_id, destination_id, weight) 
-VALUES (NEXTVAL('path_connections_seq'), ${startNode.id}, ${endNode.id}, ${calculatedWeight});` : '';
 
     return (
         <div className="container mx-auto py-8 px-4 max-w-7xl">
@@ -428,6 +475,32 @@ VALUES (NEXTVAL('path_connections_seq'), ${startNode.id}, ${endNode.id}, ${calcu
                                     <rect width="100%" height="100%" fill="url(#admin-grid)" />
                                 )}
 
+                                {/* Draw existing path connections */}
+                                {connections.map(conn => {
+                                    const source = locations.find(l => l.id === conn.sourceLocation.id);
+                                    const dest = locations.find(l => l.id === conn.destinationLocation.id);
+                                    if (!source || !dest || source.xCoordinate === null || source.yCoordinate === null || dest.xCoordinate === null || dest.yCoordinate === null) return null;
+                                    
+                                    const isVisible = activeMapFloor === 'All' || (source.floor === activeMapFloor && dest.floor === activeMapFloor);
+                                    
+                                    return (
+                                        <g key={conn.id} onClick={() => isVisible && handleDeleteConnection(conn.id)} className={`cursor-pointer transition-all duration-200 ${isVisible ? 'opacity-100' : 'opacity-10'}`}>
+                                            <line 
+                                                x1={scaleX(source.xCoordinate)}
+                                                y1={scaleY(source.yCoordinate)}
+                                                x2={scaleX(dest.xCoordinate)}
+                                                y2={scaleY(dest.yCoordinate)}
+                                                stroke="#94A3B8"
+                                                strokeWidth="4"
+                                                className="hover:stroke-red-500 transition-colors"
+                                            />
+                                            {isVisible && (
+                                                <title>Click to delete connection between {source.name} and {dest.name}</title>
+                                            )}
+                                        </g>
+                                    );
+                                })}
+
                                 {/* Draw selected draft line indicator */}
                                 {startNode && endNode && (
                                     <line 
@@ -514,44 +587,30 @@ VALUES (NEXTVAL('path_connections_seq'), ${startNode.id}, ${endNode.id}, ${calcu
                             </div>
                             <div className="flex justify-between items-center">
                                 <span className="text-gray-500 font-semibold">Euclidean Distance:</span>
-                                <span className="font-mono font-bold text-gray-800">{startNode && endNode ? `${calculatedWeight} units` : '--'}</span>
+                                <span className="font-mono font-bold text-gray-800">{startNode && endNode ? `${calculateDistance(startNode, endNode)} units` : '--'}</span>
                             </div>
                         </div>
 
-                        {/* Generated SQL script area */}
+                        {/* Connection Creation action */}
                         {startNode && endNode ? (
                             <div className="space-y-3.5">
-                                <div className="flex items-center justify-between">
-                                    <label className="text-xs font-bold text-gray-700 uppercase tracking-wider flex items-center gap-1">
-                                        <Sparkles className="w-3.5 h-3.5 text-accent animate-pulse" /> Auto Seeding SQL Script
-                                    </label>
-                                    <button 
-                                        onClick={() => handleCopySql(generatedSql)}
-                                        className="text-xs font-bold text-primary hover:text-opacity-80 flex items-center gap-1 bg-primary/10 px-2.5 py-1 rounded-lg transition-all"
-                                    >
-                                        {sqlCopySuccess ? (
-                                            <>
-                                                <Check className="w-3.5 h-3.5" />
-                                                Copied!
-                                            </>
-                                        ) : (
-                                            <>
-                                                <Copy className="w-3.5 h-3.5" />
-                                                Copy SQL
-                                            </>
-                                        )}
-                                    </button>
-                                </div>
-                                <textarea 
-                                    readOnly 
-                                    value={generatedSql} 
-                                    rows="5"
-                                    className="w-full p-3 font-mono text-xs bg-gray-900 text-green-400 border rounded-xl outline-none focus:ring-1 focus:ring-primary select-all leading-normal"
-                                />
+                                <button 
+                                    onClick={handleCreateConnection}
+                                    className="w-full bg-accent text-white py-3 rounded-xl font-bold hover:bg-opacity-95 transition-all shadow-md shadow-red-200 flex items-center justify-center gap-2"
+                                >
+                                    <Plus className="w-5 h-5" />
+                                    Create Path Connection
+                                </button>
+                                <button 
+                                    onClick={() => { setStartNode(null); setEndNode(null); }}
+                                    className="w-full bg-gray-100 text-gray-700 py-2.5 rounded-xl font-bold hover:bg-gray-200 transition-all text-sm"
+                                >
+                                    Cancel
+                                </button>
                                 <div className="text-[10px] text-gray-400 leading-normal bg-blue-50/50 p-3 rounded-lg border border-blue-100 flex gap-1.5">
                                     <AlertCircle className="w-4 h-4 text-primary shrink-0" />
                                     <span>
-                                        Execute the query above inside your PostgreSQL terminal (or seed SQL script) to link the rooms!
+                                        Clicking "Create Path Connection" will instantly save the link between these two nodes. You can delete connections by clicking their lines on the map.
                                     </span>
                                 </div>
                             </div>

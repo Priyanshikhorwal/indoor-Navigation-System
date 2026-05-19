@@ -19,4 +19,8 @@ public class PathConnectionDto {
     private Double distance; // Optional. If null, we calculate it
 
     private Boolean isAccessible = true; // Default to true
+
+    private Boolean isBidirectional = true; // Default to true
+
+    private String directionType; // e.g. "FLAT", "UP", "DOWN"
 }

@@ -36,13 +36,20 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
-                        // Allow login and public pathfinding APIs
-                        .requestMatchers("/api/auth/login", "/api/path/**").permitAll()
-                        // Expose GET locations publicly
-                        .requestMatchers(HttpMethod.GET, "/api/locations").permitAll()
-                        // Secure map management APIs and registration
-                        .requestMatchers("/api/locations/**", "/api/connections/**", "/api/auth/register").authenticated()
-                        // Catch-all to ensure any other /api/** routes are authenticated
+                        // Public auth endpoints
+                        .requestMatchers("/api/auth/login", "/api/auth/register").permitAll()
+                        // Public read-only endpoints (navigation, location list, connection list)
+                        .requestMatchers(HttpMethod.GET, "/api/locations", "/api/locations/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/connections", "/api/connections/**").permitAll()
+                        .requestMatchers("/api/path/**").permitAll()
+                        // Admin-only mutations for locations
+                        .requestMatchers(HttpMethod.POST, "/api/locations/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/locations/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/locations/**").hasRole("ADMIN")
+                        // Admin-only mutations for connections
+                        .requestMatchers(HttpMethod.POST, "/api/connections/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/connections/**").hasRole("ADMIN")
+                        // Catch-all: everything else requires authentication
                         .requestMatchers("/api/**").authenticated()
                         // Allow static resources and SPA routing
                         .anyRequest().permitAll()

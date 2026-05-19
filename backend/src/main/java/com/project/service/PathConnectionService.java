@@ -25,10 +25,20 @@ public class PathConnectionService {
 
     @CacheEvict(value = "graph", allEntries = true)
     public PathConnection createConnection(PathConnectionDto dto) {
+        if (dto.getSourceLocationId().equals(dto.getDestinationLocationId())) {
+            throw new IllegalArgumentException("Cannot create a connection from a location to itself.");
+        }
+
         Location source = locationRepository.findById(dto.getSourceLocationId())
                 .orElseThrow(() -> new EntityNotFoundException("Source location not found with id: " + dto.getSourceLocationId()));
         Location destination = locationRepository.findById(dto.getDestinationLocationId())
                 .orElseThrow(() -> new EntityNotFoundException("Destination location not found with id: " + dto.getDestinationLocationId()));
+
+        boolean exists = pathConnectionRepository.existsBySourceLocationAndDestinationLocation(source, destination) ||
+                         pathConnectionRepository.existsBySourceLocationAndDestinationLocation(destination, source);
+        if (exists) {
+            throw new IllegalArgumentException("A connection already exists between these locations.");
+        }
 
         double distance = dto.getDistance() != null ? dto.getDistance() : calculateEuclideanDistance(source, destination);
 
@@ -37,6 +47,11 @@ public class PathConnectionService {
         connection.setDestinationLocation(destination);
         connection.setDistance(distance);
         connection.setIsAccessible(dto.getIsAccessible());
+        
+        if (dto.getIsBidirectional() != null) {
+            connection.setIsBidirectional(dto.getIsBidirectional());
+        }
+        connection.setDirectionType(dto.getDirectionType());
 
         return pathConnectionRepository.save(connection);
     }
