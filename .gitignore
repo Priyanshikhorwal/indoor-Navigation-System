@@ -1,23 +1,15 @@
-<<<<<<< HEAD
-node_modules/
-frontend/node_modules/
-
+# Maven
 target/
-backend/target/
-
-
-# IntelliJ
-.idea/
-
-# VS Code
-.vscode/
 
 # Java
 *.class
 
-# Logs
-*.log
-=======
+# IDE
+.idea/
+.vscode/
+
+
+
 # Node modules
 frontend/node_modules/
 
@@ -29,7 +21,6 @@ frontend/dist/
 .env.local
 frontend/.env
 frontend/.env.local
->>>>>>> main
 
 # OS files
 .DS_Store
