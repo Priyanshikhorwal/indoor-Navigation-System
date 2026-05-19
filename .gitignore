@@ -1,29 +1,22 @@
-
-# Node modules
+node_modules/
 frontend/node_modules/
-backend/node_modules/
 
-# Build output
-frontend/dist/
-backend/dist/
+target/
+backend/target/
 
-# Environment files
-.env
-.env.local
-frontend/.env
-frontend/.env.local
-backend/.env
-backend/.env.local
+
+# IntelliJ
+.idea/
+
+# VS Code
+.vscode/
+
+# Java
+*.class
+
+# Logs
+*.log
 
 # OS files
 .DS_Store
 Thumbs.db
-
-# Logs
-*.log
-npm-debug.log*
-
-# Editor files
-.vscode/
-.idea/
-

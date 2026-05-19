@@ -28,21 +28,21 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                .cors().and()
-                .csrf().disable()
-                .authorizeHttpRequests()
-                // Allow login and public pathfinding APIs
-                .requestMatchers("/api/auth/login", "/api/path/**").permitAll()
-                // Secure map management APIs and registration
-                .requestMatchers("/api/locations/**", "/api/connections/**", "/api/auth/register").authenticated()
-                // Catch-all to ensure any other /api/** routes are authenticated
-                .requestMatchers("/api/**").authenticated()
-                // Allow static resources and SPA routing
-                .anyRequest().permitAll()
-                .and()
-                .sessionManagement()
-                .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-                .and()
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .csrf(csrf -> csrf.disable())
+                .authorizeHttpRequests(auth -> auth
+                        // Allow login and public pathfinding APIs
+                        .requestMatchers("/api/auth/login", "/api/path/**").permitAll()
+                        // Secure map management APIs and registration
+                        .requestMatchers("/api/locations/**", "/api/connections/**", "/api/auth/register").authenticated()
+                        // Catch-all to ensure any other /api/** routes are authenticated
+                        .requestMatchers("/api/**").authenticated()
+                        // Allow static resources and SPA routing
+                        .anyRequest().permitAll()
+                )
+                .sessionManagement(session -> session
+                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                )
                 .authenticationProvider(authenticationProvider())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
