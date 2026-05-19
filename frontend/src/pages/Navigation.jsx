@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams, Link } from 'react-router-dom';
 import api from '../services/api';
 import Loader from '../components/Loader';
-import { Navigation2, MapPin, Compass, RotateCcw } from 'lucide-react';
+import { Navigation2, MapPin, Compass, RotateCcw, Star, ArrowRight } from 'lucide-react';
 
 const Navigation = () => {
+    const [searchParams] = useSearchParams();
     const [locations, setLocations] = useState([]);
     const [source, setSource] = useState('');
     const [destination, setDestination] = useState('');
@@ -13,6 +15,7 @@ const Navigation = () => {
     const [error, setError] = useState('');
     const [selectedMapFloor, setSelectedMapFloor] = useState('All');
     const [hoveredNode, setHoveredNode] = useState(null);
+    const [isSaved, setIsSaved] = useState(false);
 
     useEffect(() => {
         fetchLocations();
@@ -51,6 +54,35 @@ const Navigation = () => {
                 } else {
                     setSelectedMapFloor('All');
                 }
+
+                // Log search in user history
+                const token = localStorage.getItem('token');
+                const email = localStorage.getItem('email');
+                if (token && email) {
+                    const savedHistory = localStorage.getItem(`history_${email}`);
+                    let historyArray = savedHistory ? JSON.parse(savedHistory) : [];
+                    
+                    const sourceLoc = locations.find(l => l.id.toString() === source);
+                    const destLoc = locations.find(l => l.id.toString() === destination);
+                    
+                    if (sourceLoc && destLoc) {
+                        const newQuery = {
+                            sourceId: source,
+                            destinationId: destination,
+                            sourceName: sourceLoc.name,
+                            destinationName: destLoc.name,
+                            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' ' + new Date().toLocaleDateString(),
+                            floors: sourceLoc.floor === destLoc.floor ? `Floor ${sourceLoc.floor}` : `Floors ${sourceLoc.floor} → ${destLoc.floor}`
+                        };
+                        
+                        const isDuplicate = historyArray.some(item => item.sourceId === source && item.destinationId === destination);
+                        if (!isDuplicate) {
+                            historyArray.unshift(newQuery);
+                            if (historyArray.length > 8) historyArray.pop();
+                            localStorage.setItem(`history_${email}`, JSON.stringify(historyArray));
+                        }
+                    }
+                }
             }
         } catch (err) {
             setError('Failed to find path. Make sure backend is running.');
@@ -58,6 +90,52 @@ const Navigation = () => {
             setLoading(false);
         }
     };
+
+    // Reset saved state when source/destination changes
+    useEffect(() => {
+        setIsSaved(false);
+    }, [source, destination]);
+
+    // Handle saving favorite route
+    const handleSaveFavorite = () => {
+        const email = localStorage.getItem('email');
+        if (!email) return;
+
+        const savedFavorites = localStorage.getItem(`favorites_${email}`);
+        let favoritesArray = savedFavorites ? JSON.parse(savedFavorites) : [];
+
+        const sourceLoc = locations.find(l => l.id.toString() === source);
+        const destLoc = locations.find(l => l.id.toString() === destination);
+
+        if (sourceLoc && destLoc) {
+            const isAlreadySaved = favoritesArray.some(
+                fav => fav.sourceId === source && fav.destinationId === destination
+            );
+
+            if (!isAlreadySaved) {
+                const newFavorite = {
+                    sourceId: source,
+                    destinationId: destination,
+                    sourceName: sourceLoc.name,
+                    destinationName: destLoc.name,
+                    floorSummary: sourceLoc.floor === destLoc.floor ? `Floor ${sourceLoc.floor}` : `Floors ${sourceLoc.floor} → ${destLoc.floor}`
+                };
+                favoritesArray.push(newFavorite);
+                localStorage.setItem(`favorites_${email}`, JSON.stringify(favoritesArray));
+                setIsSaved(true);
+            }
+        }
+    };
+
+    // Prefill coordinates from URL search queries
+    useEffect(() => {
+        const sourceId = searchParams.get('sourceId');
+        const destinationId = searchParams.get('destinationId');
+        if (sourceId && destinationId && locations.length > 0) {
+            setSource(sourceId);
+            setDestination(destinationId);
+        }
+    }, [searchParams, locations]);
 
     const handleNodeClick = (loc) => {
         const locIdStr = loc.id.toString();
@@ -241,6 +319,40 @@ const Navigation = () => {
                                     <MapPin className="text-accent" />
                                     Route Guidance
                                 </h2>
+
+                                {/* Dynamic Pinned Favorites Action Widget */}
+                                {localStorage.getItem('token') && localStorage.getItem('role') === 'ROLE_USER' ? (
+                                    <button 
+                                        type="button"
+                                        onClick={handleSaveFavorite} 
+                                        disabled={isSaved}
+                                        className={`w-full py-2.5 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 border mb-5 ${
+                                            isSaved 
+                                                ? 'bg-green-55 border-green-200 text-green-750 cursor-default' 
+                                                : 'bg-white border-gray-200 hover:border-primary text-primary hover:bg-gray-50'
+                                        }`}
+                                    >
+                                        <Star className={`w-4 h-4 ${isSaved ? 'fill-green-600 text-green-600' : 'text-primary'}`} />
+                                        <span>{isSaved ? 'Saved to Favorites!' : 'Save Route to Favorites'}</span>
+                                    </button>
+                                ) : !localStorage.getItem('token') ? (
+                                    <div className="bg-primary/5 border border-primary/10 rounded-xl p-3.5 mb-5 flex flex-col gap-2 animate-in fade-in duration-200">
+                                        <div className="flex items-center gap-2 text-xs font-bold text-primary">
+                                            <Star className="w-4 h-4 text-accent fill-accent shrink-0" />
+                                            <span>Pin this Route to Favorites</span>
+                                        </div>
+                                        <p className="text-[10px] text-gray-500 leading-relaxed font-medium">
+                                            Register or log in to your personal navigation account to pin your common commutes and travel routes here!
+                                        </p>
+                                        <Link 
+                                            to="/login?tab=register" 
+                                            className="text-[10px] font-black text-accent hover:underline flex items-center gap-0.5 mt-0.5"
+                                        >
+                                            <span>Create a Free Account</span>
+                                            <ArrowRight className="w-3 h-3" />
+                                        </Link>
+                                    </div>
+                                ) : null}
                                 
                                 <div className="relative border-l-2 border-primary/20 ml-3.5">
                                     {path.map((loc, index) => {
