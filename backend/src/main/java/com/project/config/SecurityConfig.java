@@ -31,8 +31,14 @@ public class SecurityConfig {
                 .cors().and()
                 .csrf().disable()
                 .authorizeHttpRequests()
-                .requestMatchers("/api/auth/**", "/api/path/**").permitAll()
-                .anyRequest().authenticated()
+                // Allow login and public pathfinding APIs
+                .requestMatchers("/api/auth/login", "/api/path/**").permitAll()
+                // Secure map management APIs and registration
+                .requestMatchers("/api/locations/**", "/api/connections/**", "/api/auth/register").authenticated()
+                // Catch-all to ensure any other /api/** routes are authenticated
+                .requestMatchers("/api/**").authenticated()
+                // Allow static resources and SPA routing
+                .anyRequest().permitAll()
                 .and()
                 .sessionManagement()
                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
