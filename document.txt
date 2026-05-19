@@ -69,6 +69,15 @@ B. FRONTEND INTERFACE (React + Vite + Tailwind CSS + Lucide Icons)
   *Fix Required*: Expose public 'GET /api/locations' while securing 'POST', 
   'PUT', and 'DELETE' under Admin credentials.
 
+- PENDING BACKEND USER AUTHENTICATION & ROLE-BASED ACCESS CONTROL (ROLE_USER):
+  While the frontend has a complete, premium User Login, Signup, and personalized 
+  User Dashboard fully implemented, the backend database and API currently only 
+  register users with 'ROLE_ADMIN' due to hardcoded role assignment in 'AuthController.java'.
+  *Fix Required*: Update 'AuthController.java' to allow registration with a dynamic 
+  role (defaulting to 'ROLE_USER'), and configure 'SecurityConfig.java' to permit 
+  public 'GET /api/locations' requests while strictly restricting POST, PUT, and 
+  DELETE operations to 'ROLE_ADMIN'.
+
 - NO VISUAL INTERACTIVE MAP / BLUEPRINT: DONE ✅
   The public pathway portal 'Navigation.jsx' now contains a state-of-the-art 
   interactive visual graph map. It normalizes coordinates automatically, filters 
