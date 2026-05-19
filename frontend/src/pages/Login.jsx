@@ -1,21 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import api from '../services/api';
-import { Lock, User, UserPlus, ShieldAlert, ArrowRight, Eye, EyeOff } from 'lucide-react';
+import { User, UserPlus, ArrowRight, Eye, EyeOff } from 'lucide-react';
 
-const Login = ({ initialTab = 'user' }) => {
-    const [searchParams] = useSearchParams();
+const Login = ({ mode = 'login' }) => {
     const navigate = useNavigate();
-
-    // Determine starting tab from URL query (?tab=admin) or fallback to initialTab
-    const getStartingTab = () => {
-        const queryTab = searchParams.get('tab');
-        if (queryTab === 'admin') return 'admin';
-        if (queryTab === 'register') return 'register';
-        return initialTab;
-    };
-
-    const [activeTab, setActiveTab] = useState(getStartingTab());
+    const [activeTab, setActiveTab] = useState(mode === 'register' ? 'register' : 'user');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
@@ -24,15 +14,13 @@ const Login = ({ initialTab = 'user' }) => {
     const [success, setSuccess] = useState('');
     const [loading, setLoading] = useState(false);
 
-    // Sync tab with search parameter adjustments if any
+    // Sync tab with route mode changes (e.g. from navbar clicks)
     useEffect(() => {
-        const queryTab = searchParams.get('tab');
-        if (queryTab) {
-            setActiveTab(queryTab);
-        }
-    }, [searchParams]);
+        setActiveTab(mode === 'register' ? 'register' : 'user');
+        setError('');
+        setSuccess('');
+    }, [mode]);
 
-    // Clear alerts on tab change
     const handleTabChange = (tab) => {
         setActiveTab(tab);
         setEmail('');
@@ -40,6 +28,11 @@ const Login = ({ initialTab = 'user' }) => {
         setConfirmPassword('');
         setError('');
         setSuccess('');
+        if (tab === 'register') {
+            navigate('/register');
+        } else {
+            navigate('/login');
+        }
     };
 
     const handleSubmit = async (e) => {
@@ -64,14 +57,13 @@ const Login = ({ initialTab = 'user' }) => {
 
         try {
             if (activeTab === 'register') {
-                // Call backend signup API
-                const response = await api.post('/auth/register', { email, password });
+                // Call backend signup API for standard users (ROLE_USER)
+                const response = await api.post('/auth/register', { email, password, role: 'ROLE_USER' });
                 
                 setSuccess('Account created successfully! Logging you in...');
                 
-                // Pure Frontend Role Segregation: Store role as ROLE_USER when signing up as general user
                 localStorage.setItem('token', response.data.token);
-                localStorage.setItem('role', 'ROLE_USER');
+                localStorage.setItem('role', response.data.role || 'ROLE_USER');
                 localStorage.setItem('email', email);
                 
                 setTimeout(() => {
@@ -84,16 +76,15 @@ const Login = ({ initialTab = 'user' }) => {
                 localStorage.setItem('token', response.data.token);
                 localStorage.setItem('email', email);
 
-                if (activeTab === 'admin') {
-                    // For administrative login, assign ROLE_ADMIN
-                    localStorage.setItem('role', 'ROLE_ADMIN');
+                const userRole = response.data.role || 'ROLE_USER';
+                localStorage.setItem('role', userRole);
+
+                if (userRole === 'ROLE_ADMIN') {
                     setSuccess('Admin authenticated! Redirecting to Dashboard...');
                     setTimeout(() => {
                         navigate('/admin-dashboard');
                     }, 1200);
                 } else {
-                    // Pure Frontend Role Segregation: Force ROLE_USER for general user login
-                    localStorage.setItem('role', 'ROLE_USER');
                     setSuccess('Login successful! Welcome to Indoor Nav.');
                     setTimeout(() => {
                         navigate('/user-dashboard');
@@ -119,19 +110,17 @@ const Login = ({ initialTab = 'user' }) => {
                 <div className="bg-primary text-white p-8 text-center relative">
                     <div className="absolute top-0 left-0 w-full h-full opacity-10 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-white via-transparent to-transparent"></div>
                     <div className="mx-auto bg-white/10 w-16 h-16 rounded-2xl flex items-center justify-center mb-4 backdrop-blur shadow-inner">
-                        {activeTab === 'admin' ? (
-                            <ShieldAlert className="w-8 h-8 text-accent animate-pulse" />
-                        ) : activeTab === 'register' ? (
+                        {activeTab === 'register' ? (
                             <UserPlus className="w-8 h-8 text-white" />
                         ) : (
                             <User className="w-8 h-8 text-white" />
                         )}
                     </div>
                     <h2 className="text-2xl font-bold tracking-tight">
-                        {activeTab === 'admin' ? 'Administrative Access' : activeTab === 'register' ? 'Create User Account' : 'Welcome back to Indoor Nav'}
+                        {activeTab === 'register' ? 'Create User Account' : 'Welcome to Indoor Nav'}
                     </h2>
                     <p className="text-gray-300 text-xs mt-1">
-                        {activeTab === 'admin' ? 'Secure portal for map administrators' : activeTab === 'register' ? 'Sign up to unlock personalized routing features' : 'Enter details to access your personal navigation terminal'}
+                        {activeTab === 'register' ? 'Sign up to unlock personalized routing features' : 'Enter details to access your personal navigation terminal'}
                     </p>
                 </div>
 
@@ -158,17 +147,6 @@ const Login = ({ initialTab = 'user' }) => {
                     >
                         <UserPlus className="w-3.5 h-3.5" />
                         Sign Up
-                    </button>
-                    <button
-                        onClick={() => handleTabChange('admin')}
-                        className={`flex-1 py-3 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 ${
-                            activeTab === 'admin'
-                                ? 'bg-white text-primary shadow-sm'
-                                : 'text-gray-500 hover:text-primary'
-                        }`}
-                    >
-                        <Lock className="w-3.5 h-3.5" />
-                        Admin Auth
                     </button>
                 </div>
 
@@ -206,11 +184,6 @@ const Login = ({ initialTab = 'user' }) => {
                         <div>
                             <label className="block text-xs font-bold text-primary/80 uppercase tracking-wider mb-2 flex justify-between items-center">
                                 <span>Password</span>
-                                {activeTab !== 'register' && (
-                                    <span className="text-[10px] text-accent font-bold hover:underline cursor-pointer normal-case">
-                                        Forgot Password?
-                                    </span>
-                                )}
                             </label>
                             <div className="relative">
                                 <input
@@ -256,8 +229,6 @@ const Login = ({ initialTab = 'user' }) => {
                             <span>
                                 {loading
                                     ? 'Processing Securely...'
-                                    : activeTab === 'admin'
-                                    ? 'Authorize Admin Console'
                                     : activeTab === 'register'
                                     ? 'Create My Free Account'
                                     : 'Authenticate My Account'}
@@ -268,17 +239,7 @@ const Login = ({ initialTab = 'user' }) => {
 
                     {/* Bottom Helper */}
                     <div className="text-center mt-6 pt-6 border-t border-gray-50 text-xs text-gray-500">
-                        {activeTab === 'admin' ? (
-                            <span>
-                                Not an administrator?{' '}
-                                <button
-                                    onClick={() => handleTabChange('user')}
-                                    className="text-primary font-bold hover:underline"
-                                >
-                                    Log in as Standard User
-                                </button>
-                            </span>
-                        ) : activeTab === 'register' ? (
+                        {activeTab === 'register' ? (
                             <span>
                                 Already have an account?{' '}
                                 <button
@@ -289,15 +250,23 @@ const Login = ({ initialTab = 'user' }) => {
                                 </button>
                             </span>
                         ) : (
-                            <span>
-                                Don't have an account?{' '}
-                                <button
-                                    onClick={() => handleTabChange('register')}
-                                    className="text-primary font-bold hover:underline"
-                                >
-                                    Register free today
-                                </button>
-                            </span>
+                            <div className="flex flex-col gap-3">
+                                <span>
+                                    Don't have an account?{' '}
+                                    <button
+                                        onClick={() => handleTabChange('register')}
+                                        className="text-primary font-bold hover:underline"
+                                    >
+                                        Register free today
+                                    </button>
+                                </span>
+                                <div className="pt-2 border-t border-gray-100/50 mt-1 flex justify-center items-center gap-1.5 text-[11px] text-gray-400">
+                                    <span>Are you a map administrator?</span>
+                                    <Link to="/admin-login" className="text-accent font-bold hover:underline">
+                                        Admin Portal Access
+                                    </Link>
+                                </div>
+                            </div>
                         )}
                     </div>
                 </div>

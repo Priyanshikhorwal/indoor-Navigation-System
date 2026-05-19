@@ -7,4 +7,5 @@ import java.util.List;
 
 public interface PathConnectionRepository extends JpaRepository<PathConnection, Long> {
     List<PathConnection> findBySourceLocationOrDestinationLocation(Location source, Location destination);
+    boolean existsBySourceLocationAndDestinationLocation(Location source, Location destination);
 }

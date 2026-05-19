@@ -49,8 +49,12 @@ const Navbar = () => {
                             <Link to="/login" className="text-white hover:text-accent transition-colors text-sm font-semibold">
                                 Sign In
                             </Link>
-                            <Link to="/login?tab=register" className="bg-white text-primary px-4 py-2 rounded-xl hover:bg-gray-100 transition-all text-xs font-black shadow-sm">
+                            <Link to="/register" className="bg-white text-primary px-4 py-2 rounded-xl hover:bg-gray-100 transition-all text-xs font-black shadow-sm">
                                 Register
+                            </Link>
+                            <span className="text-white/20">|</span>
+                            <Link to="/admin-login" className="text-gray-200 hover:text-accent hover:border-accent/40 border border-white/10 px-3 py-1.5 rounded-xl transition-all text-xs font-bold bg-white/5">
+                                Admin Portal
                             </Link>
                         </div>
                     )}

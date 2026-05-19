@@ -10,7 +10,11 @@ public class ForwardingController {
     @RequestMapping(value = {
             "/",
             "/navigate",
+            "/login",
+            "/register",
             "/admin-login",
+            "/admin-register",
+            "/user-dashboard",
             "/admin-dashboard"
     })
     public String forward() {

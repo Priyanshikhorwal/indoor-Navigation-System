@@ -32,5 +32,20 @@ public class Location {
     @Column(nullable = false)
     private Integer yCoordinate;
     
-    private String floor;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "floor_id", nullable = false)
+    private Floor floor;
+
+    @Column(nullable = false)
+    private String type = "ROOM";
+
+    public Location(Long id, String name, String description, Integer xCoordinate, Integer yCoordinate, Floor floor) {
+        this.id = id;
+        this.name = name;
+        this.description = description;
+        this.xCoordinate = xCoordinate;
+        this.yCoordinate = yCoordinate;
+        this.floor = floor;
+        this.type = "ROOM";
+    }
 }

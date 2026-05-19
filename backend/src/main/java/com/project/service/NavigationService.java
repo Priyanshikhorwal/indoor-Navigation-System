@@ -2,6 +2,8 @@ package com.project.service;
 
 import com.project.entity.Location;
 import com.project.entity.PathConnection;
+import com.project.dto.NavigationResponseDto;
+import com.project.dto.NavigationStepDto;
 import com.project.repository.LocationRepository;
 import com.project.repository.PathConnectionRepository;
 import jakarta.persistence.EntityNotFoundException;
@@ -24,11 +26,21 @@ public class NavigationService {
         Map<Location, List<Edge>> graph = new HashMap<>();
         for (PathConnection pc : allConnections) {
             graph.computeIfAbsent(pc.getSourceLocation(), k -> new ArrayList<>())
-                 .add(new Edge(pc.getDestinationLocation(), pc.getDistance(), pc.getIsAccessible()));
-            graph.computeIfAbsent(pc.getDestinationLocation(), k -> new ArrayList<>())
-                 .add(new Edge(pc.getSourceLocation(), pc.getDistance(), pc.getIsAccessible())); // Undirected graph
+                 .add(new Edge(pc.getDestinationLocation(), pc.getDistance(), pc.getIsAccessible(), pc.getDirectionType()));
+                 
+            if (Boolean.TRUE.equals(pc.getIsBidirectional())) {
+                graph.computeIfAbsent(pc.getDestinationLocation(), k -> new ArrayList<>())
+                     .add(new Edge(pc.getSourceLocation(), pc.getDistance(), pc.getIsAccessible(), getReverseDirection(pc.getDirectionType())));
+            }
         }
         return graph;
+    }
+
+    private String getReverseDirection(String direction) {
+        if (direction == null) return null;
+        if ("UP".equalsIgnoreCase(direction)) return "DOWN";
+        if ("DOWN".equalsIgnoreCase(direction)) return "UP";
+        return direction;
     }
 
     public List<Location> findShortestPathAStar(Long sourceId, Long destinationId, boolean wheelchairAccessible) {
@@ -50,14 +62,19 @@ public class NavigationService {
 
         while (!openSet.isEmpty()) {
             Node current = openSet.poll();
+            if (current.gScore > gScore.getOrDefault(current.location, Double.MAX_VALUE)) {
+                continue;
+            }
 
             if (current.location.equals(destination)) {
                 return reconstructPath(cameFrom, current.location);
             }
 
             for (Edge neighbor : graph.getOrDefault(current.location, Collections.emptyList())) {
-                if (wheelchairAccessible && !neighbor.isAccessible) {
-                    continue; // Skip inaccessible edges for wheelchair routing
+                if (wheelchairAccessible) {
+                    if (!neighbor.isAccessible || "STAIRS".equalsIgnoreCase(neighbor.location.getType())) {
+                        continue; // Skip stairs or inaccessible edges for wheelchair routing
+                    }
                 }
                 double tentativeGScore = gScore.getOrDefault(current.location, Double.MAX_VALUE) + neighbor.weight;
 
@@ -75,9 +92,110 @@ public class NavigationService {
     }
 
     private double heuristic(Location a, Location b) {
-        // Euclidean distance as heuristic
-        return Math.sqrt(Math.pow(a.getXCoordinate() - b.getXCoordinate(), 2) + 
-                         Math.pow(a.getYCoordinate() - b.getYCoordinate(), 2));
+        double dx = a.getXCoordinate() - b.getXCoordinate();
+        double dy = a.getYCoordinate() - b.getYCoordinate();
+        
+        int floorA = (a.getFloor() != null && a.getFloor().getFloorNumber() != null) ? a.getFloor().getFloorNumber() : 0;
+        int floorB = (b.getFloor() != null && b.getFloor().getFloorNumber() != null) ? b.getFloor().getFloorNumber() : 0;
+        
+        double dz = 150.0 * (floorA - floorB);
+        return Math.sqrt(dx * dx + dy * dy + dz * dz);
+    }
+
+    public NavigationResponseDto getNavigationRoute(Long sourceId, Long destinationId, boolean wheelchairAccessible) {
+        List<Location> path = findShortestPathAStar(sourceId, destinationId, wheelchairAccessible);
+        if (path.isEmpty()) {
+            return new NavigationResponseDto(Collections.emptyList(), Collections.emptyList(), 0.0);
+        }
+
+        List<NavigationStepDto> steps = new ArrayList<>();
+        double totalDist = 0.0;
+
+        // Step 1: Start point
+        Location start = path.get(0);
+        String startFloorName = start.getFloor() != null ? start.getFloor().getFloorName() : "Unknown Floor";
+        
+        steps.add(new NavigationStepDto(
+            "Start at " + start.getName() + " on floor " + startFloorName,
+            "WALK_STRAIGHT",
+            0.0,
+            startFloorName
+        ));
+
+        for (int i = 0; i < path.size() - 1; i++) {
+            Location curr = path.get(i);
+            Location next = path.get(i + 1);
+
+            String currFloorName = curr.getFloor() != null ? curr.getFloor().getFloorName() : "Unknown Floor";
+            String nextFloorName = next.getFloor() != null ? next.getFloor().getFloorName() : "Unknown Floor";
+
+            double dx = next.getXCoordinate() - curr.getXCoordinate();
+            double dy = next.getYCoordinate() - curr.getYCoordinate();
+            double legDist = Math.sqrt(dx * dx + dy * dy) * 0.5; // Scale: 1 unit = 0.5 meters
+            totalDist += legDist;
+
+            boolean floorChanged = !Objects.equals(
+                curr.getFloor() != null ? curr.getFloor().getId() : null,
+                next.getFloor() != null ? next.getFloor().getId() : null
+            );
+            
+            if (floorChanged) {
+                String action = "WALK_STRAIGHT";
+                String instruction = "Change floor from " + currFloorName + " to " + nextFloorName + " towards " + next.getName();
+                if ("ELEVATOR".equalsIgnoreCase(next.getType()) || "ELEVATOR".equalsIgnoreCase(curr.getType())) {
+                    action = "TAKE_ELEVATOR";
+                    instruction = "Take elevator from " + currFloorName + " to " + nextFloorName + " and proceed to " + next.getName();
+                } else if ("STAIRS".equalsIgnoreCase(next.getType()) || "STAIRS".equalsIgnoreCase(curr.getType())) {
+                    action = "TAKE_STAIRS";
+                    instruction = "Take stairs from " + currFloorName + " to " + nextFloorName + " and proceed to " + next.getName();
+                }
+                steps.add(new NavigationStepDto(instruction, action, legDist, nextFloorName));
+            } else {
+                // If it is just a walk to the next location
+                String directionText = "Walk " + String.format("%.1f", legDist) + " meters to " + next.getName();
+                steps.add(new NavigationStepDto(directionText, "WALK_STRAIGHT", legDist, currFloorName));
+
+                // Determine if there is a turn at 'next' transitioning to the subsequent node
+                if (i < path.size() - 2) {
+                    Location afterNext = path.get(i + 2);
+                    
+                    boolean floorChangedNext = !Objects.equals(
+                        next.getFloor() != null ? next.getFloor().getId() : null,
+                        afterNext.getFloor() != null ? afterNext.getFloor().getId() : null
+                    );
+                    
+                    if (!floorChangedNext) {
+                        double theta1 = Math.atan2(next.getYCoordinate() - curr.getYCoordinate(), next.getXCoordinate() - curr.getXCoordinate());
+                        double theta2 = Math.atan2(afterNext.getYCoordinate() - next.getYCoordinate(), afterNext.getXCoordinate() - next.getXCoordinate());
+                        double diff = theta2 - theta1;
+                        while (diff < -Math.PI) diff += 2 * Math.PI;
+                        while (diff > Math.PI) diff -= 2 * Math.PI;
+                        double deg = Math.toDegrees(diff);
+
+                        if (deg >= 25 && deg < 135) {
+                            steps.add(new NavigationStepDto("At " + next.getName() + ", turn right towards " + afterNext.getName(), "TURN_RIGHT", 0.0, nextFloorName));
+                        } else if (deg <= -25 && deg > -135) {
+                            steps.add(new NavigationStepDto("At " + next.getName() + ", turn left towards " + afterNext.getName(), "TURN_LEFT", 0.0, nextFloorName));
+                        } else if (deg >= 135 || deg <= -135) {
+                            steps.add(new NavigationStepDto("At " + next.getName() + ", turn around towards " + afterNext.getName(), "TURN_RIGHT", 0.0, nextFloorName));
+                        }
+                    }
+                }
+            }
+        }
+
+        // Arrive step
+        Location destination = path.get(path.size() - 1);
+        String destFloorName = destination.getFloor() != null ? destination.getFloor().getFloorName() : "Unknown Floor";
+        
+        steps.add(new NavigationStepDto(
+            "Arrive at your destination: " + destination.getName(),
+            "ARRIVE",
+            0.0,
+            destFloorName
+        ));
+
+        return new NavigationResponseDto(path, steps, totalDist);
     }
 
     private List<Location> reconstructPath(Map<Location, Location> cameFrom, Location current) {
@@ -94,10 +212,13 @@ public class NavigationService {
         Location location;
         double weight;
         boolean isAccessible;
-        Edge(Location location, double weight, boolean isAccessible) {
+        String directionType;
+        
+        Edge(Location location, double weight, boolean isAccessible, String directionType) {
             this.location = location;
             this.weight = weight;
             this.isAccessible = isAccessible;
+            this.directionType = directionType;
         }
     }
 

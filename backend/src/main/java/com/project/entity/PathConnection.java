@@ -29,4 +29,10 @@ public class PathConnection {
 
     @Column(nullable = false)
     private Boolean isAccessible = true;
+
+    @Column(name = "is_bidirectional", nullable = false)
+    private Boolean isBidirectional = true;
+
+    @Column(name = "direction_type")
+    private String directionType; // e.g., "BOTH", "ONE_WAY"
 }

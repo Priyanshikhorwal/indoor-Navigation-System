@@ -5,6 +5,7 @@ import Footer from './components/Footer';
 import Home from './pages/Home';
 import Navigation from './pages/Navigation';
 import Login from './pages/Login';
+import AdminLogin from './pages/AdminLogin';
 import UserDashboard from './pages/UserDashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -18,8 +19,10 @@ function App() {
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/navigate" element={<Navigation />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/admin-login" element={<Login initialTab="admin" />} />
+            <Route path="/login" element={<Login mode="login" />} />
+            <Route path="/register" element={<Login mode="register" />} />
+            <Route path="/admin-login" element={<AdminLogin mode="login" />} />
+            <Route path="/admin-register" element={<AdminLogin mode="register" />} />
             <Route 
               path="/user-dashboard" 
               element={

@@ -1,12 +1,10 @@
 package com.project.controller;
 
-import com.project.entity.Location;
+import com.project.dto.NavigationResponseDto;
 import com.project.service.NavigationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/path")
@@ -16,12 +14,12 @@ public class NavigationController {
     private final NavigationService navigationService;
 
     @GetMapping("/find")
-    public ResponseEntity<List<Location>> findShortestPath(
+    public ResponseEntity<NavigationResponseDto> findShortestPath(
             @RequestParam Long sourceId,
             @RequestParam Long destinationId,
             @RequestParam(defaultValue = "false") boolean wheelchairAccessible) {
         
-        List<Location> path = navigationService.findShortestPathAStar(sourceId, destinationId, wheelchairAccessible);
-        return ResponseEntity.ok(path);
+        NavigationResponseDto response = navigationService.getNavigationRoute(sourceId, destinationId, wheelchairAccessible);
+        return ResponseEntity.ok(response);
     }
 }

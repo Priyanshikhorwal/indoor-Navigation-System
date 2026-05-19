@@ -45,10 +45,21 @@ public class AuthController {
             throw new RuntimeException("Email already in use");
         }
 
+        String rawRole = request.getRole();
+        String role = "ROLE_USER";
+        if (rawRole != null && !rawRole.trim().isEmpty()) {
+            String cleanRole = rawRole.trim().toUpperCase();
+            if (!cleanRole.startsWith("ROLE_")) {
+                role = "ROLE_" + cleanRole;
+            } else {
+                role = cleanRole;
+            }
+        }
+
         User user = User.builder()
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
-                .role("ROLE_ADMIN")
+                .role(role)
                 .build();
 
         userRepository.save(user);
