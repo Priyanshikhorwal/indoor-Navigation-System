@@ -1,17 +1,23 @@
 import React, { useState, useEffect, useRef } from 'react';
 import api from '../services/api';
 import Loader from '../components/Loader';
-import { Plus, Trash2, Edit, Compass, Database, Check, Copy, AlertCircle, Sparkles, MapPin } from 'lucide-react';
+import { Plus, Trash2, Edit, Compass, Database, Check, Copy, AlertCircle, Sparkles, MapPin, Building, Layers } from 'lucide-react';
 
 const AdminDashboard = () => {
     const [locations, setLocations] = useState([]);
     const [connections, setConnections] = useState([]);
+    const [buildings, setBuildings] = useState([]);
+    const [floors, setFloors] = useState([]);
+    const [graphHealth, setGraphHealth] = useState(null);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('locations'); // 'locations' or 'connections'
     const [showAddForm, setShowAddForm] = useState(false);
     
     // Add location form state
-    const [newLoc, setNewLoc] = useState({ name: '', description: '', xCoordinate: '', yCoordinate: '', floor: '' });
+    const [newLoc, setNewLoc] = useState({ name: '', description: '', xCoordinate: '', yCoordinate: '', floorId: '', type: 'ROOM' });
+    const [newBuilding, setNewBuilding] = useState({ name: '', description: '' });
+    const [newFloor, setNewFloor] = useState({ floorName: '', floorNumber: '', buildingId: '' });
+    const [mapFile, setMapFile] = useState(null);
     
     // Edit modal state
     const [editingLoc, setEditingLoc] = useState(null);
@@ -31,6 +37,11 @@ const AdminDashboard = () => {
     const [draggedNode, setDraggedNode] = useState(null);
     const svgRef = useRef(null);
 
+    // Route tester
+    const [testRouteSource, setTestRouteSource] = useState('');
+    const [testRouteDest, setTestRouteDest] = useState('');
+    const [testRouteResult, setTestRouteResult] = useState(null);
+
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
 
@@ -40,12 +51,18 @@ const AdminDashboard = () => {
 
     const fetchData = async () => {
         try {
-            const [locRes, connRes] = await Promise.all([
+            const [locRes, connRes, buildRes, floorRes, healthRes] = await Promise.all([
                 api.get('/locations'),
-                api.get('/connections')
+                api.get('/connections'),
+                api.get('/buildings'),
+                api.get('/floors'),
+                api.get('/locations/validate')
             ]);
             setLocations(locRes.data);
             setConnections(connRes.data);
+            setBuildings(buildRes.data);
+            setFloors(floorRes.data);
+            setGraphHealth(healthRes.data);
         } catch (err) {
             setError('Failed to fetch data');
         } finally {
@@ -71,12 +88,34 @@ const AdminDashboard = () => {
         }
     };
 
+    const fetchBuildings = async () => {
+        try {
+            const res = await api.get('/buildings');
+            setBuildings(res.data);
+        } catch (err) {
+            setError('Failed to fetch buildings');
+        }
+    };
+
+    const fetchFloors = async () => {
+        try {
+            const res = await api.get('/floors');
+            setFloors(res.data);
+        } catch (err) {
+            setError('Failed to fetch floors');
+        }
+    };
+
     const handleAddLocation = async (e) => {
         e.preventDefault();
         try {
-            await api.post('/locations', newLoc);
+            const payload = {
+                ...newLoc,
+                floor: newLoc.floorId ? { id: parseInt(newLoc.floorId) } : null
+            };
+            await api.post('/locations', payload);
             setSuccess('Location added successfully!');
-            setNewLoc({ name: '', description: '', xCoordinate: '', yCoordinate: '', floor: '' });
+            setNewLoc({ name: '', description: '', xCoordinate: '', yCoordinate: '', floorId: '', type: 'ROOM' });
             setShowAddForm(false);
             fetchLocations();
             setTimeout(() => setSuccess(''), 3000);
@@ -105,6 +144,67 @@ const AdminDashboard = () => {
             fetchLocations();
         } catch (err) {
             setError('Failed to delete. May have connected paths.');
+        }
+    };
+
+    const handleAddBuilding = async (e) => {
+        e.preventDefault();
+        try {
+            await api.post('/buildings', newBuilding);
+            setSuccess('Building added!');
+            setNewBuilding({ name: '', description: '' });
+            fetchBuildings();
+            setTimeout(() => setSuccess(''), 3000);
+        } catch (err) {
+            setError('Failed to add building');
+        }
+    };
+
+    const handleDeleteBuilding = async (id) => {
+        if(!window.confirm('Are you sure? Deleting a building may delete all its floors.')) return;
+        try {
+            await api.delete(`/buildings/${id}`);
+            fetchBuildings();
+        } catch (err) {
+            setError('Failed to delete building.');
+        }
+    };
+
+    const handleAddFloor = async (e) => {
+        e.preventDefault();
+        try {
+            const payload = {
+                floorName: newFloor.floorName,
+                floorNumber: parseInt(newFloor.floorNumber),
+                building: { id: parseInt(newFloor.buildingId) }
+            };
+            const res = await api.post('/floors', payload);
+            
+            if (mapFile) {
+                const formData = new FormData();
+                formData.append('file', mapFile);
+                await api.post(`/floors/${res.data.id}/map`, formData, {
+                    headers: { 'Content-Type': 'multipart/form-data' }
+                });
+            }
+            
+            setSuccess('Floor added!');
+            setNewFloor({ floorName: '', floorNumber: '', buildingId: '' });
+            setMapFile(null);
+            fetchFloors();
+            setTimeout(() => setSuccess(''), 3000);
+        } catch (err) {
+            setError('Failed to add floor');
+        }
+    };
+
+    const handleDeleteFloor = async (id) => {
+        if(!window.confirm('Are you sure? Deleting a floor may delete its locations.')) return;
+        try {
+            await api.delete(`/floors/${id}`);
+            fetchFloors();
+        } catch (err) {
+            setError('Failed to delete floor.');
         }
     };
 
@@ -160,6 +260,21 @@ const AdminDashboard = () => {
             setTimeout(() => setSuccess(''), 3000);
         } catch (err) {
             setError('Failed to delete connection.');
+            setTimeout(() => setError(''), 3000);
+        }
+    };
+
+    const handleTestRoute = async () => {
+        if (!testRouteSource || !testRouteDest) {
+            setError('Select both source and destination to test route.');
+            setTimeout(() => setError(''), 3000);
+            return;
+        }
+        try {
+            const res = await api.get(`/navigation/route?sourceId=${testRouteSource}&destinationId=${testRouteDest}&wheelchairAccessible=false`);
+            setTestRouteResult(res.data);
+        } catch (err) {
+            setError('Failed to calculate route.');
             setTimeout(() => setError(''), 3000);
         }
     };
@@ -226,11 +341,11 @@ const AdminDashboard = () => {
     };
 
     // Location searching & filtering logic
-    const uniqueFloors = [...new Set(locations.map(loc => loc.floor).filter(Boolean))];
+    const uniqueFloors = [...new Set(locations.map(loc => loc.floor?.id).filter(Boolean))];
     const filteredLocations = locations.filter(loc => {
         const matchesSearch = loc.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
                               (loc.description && loc.description.toLowerCase().includes(searchTerm.toLowerCase()));
-        const matchesFloor = !floorFilter || loc.floor === floorFilter;
+        const matchesFloor = !floorFilter || (loc.floor && loc.floor.id === parseInt(floorFilter));
         return matchesSearch && matchesFloor;
     });
 
@@ -272,6 +387,28 @@ const AdminDashboard = () => {
                 {/* Tab Switchers */}
                 <div className="flex bg-secondary p-1 rounded-xl w-fit">
                     <button
+                        onClick={() => setActiveTab('buildings')}
+                        className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all ${
+                            activeTab === 'buildings'
+                                ? 'bg-primary text-white shadow-sm'
+                                : 'text-primary/70 hover:text-primary hover:bg-white/50'
+                        }`}
+                    >
+                        <Building className="w-4.5 h-4.5" />
+                        Buildings
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('floors')}
+                        className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all ${
+                            activeTab === 'floors'
+                                ? 'bg-primary text-white shadow-sm'
+                                : 'text-primary/70 hover:text-primary hover:bg-white/50'
+                        }`}
+                    >
+                        <Layers className="w-4.5 h-4.5" />
+                        Floors
+                    </button>
+                    <button
                         onClick={() => setActiveTab('locations')}
                         className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all ${
                             activeTab === 'locations'
@@ -299,7 +436,115 @@ const AdminDashboard = () => {
             {error && <div className="bg-red-100 text-red-700 p-3.5 rounded-xl mb-6 flex items-center gap-2 border border-red-200"><AlertCircle className="w-5 h-5 shrink-0" /> {error}</div>}
             {success && <div className="bg-green-100 text-green-700 p-3.5 rounded-xl mb-6 flex items-center gap-2 border border-green-200"><Check className="w-5 h-5 shrink-0" /> {success}</div>}
 
-            {/* TAB 1: MANAGE LOCATIONS */}
+            {/* TAB: MANAGE BUILDINGS */}
+            {activeTab === 'buildings' && (
+                <div className="space-y-6 animate-in fade-in duration-200">
+                    <div className="bg-white p-6 rounded-xl shadow border border-gray-100">
+                        <h2 className="text-xl font-bold text-primary mb-4 flex items-center gap-2">
+                            <Building className="text-accent"/> Add New Building
+                        </h2>
+                        <form onSubmit={handleAddBuilding} className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <input type="text" placeholder="Building Name" required value={newBuilding.name} onChange={e=>setNewBuilding({...newBuilding, name: e.target.value})} className="p-2.5 border rounded-lg text-sm w-full outline-none focus:ring-2 focus:ring-primary focus:border-transparent" />
+                            <input type="text" placeholder="Description" value={newBuilding.description} onChange={e=>setNewBuilding({...newBuilding, description: e.target.value})} className="p-2.5 border rounded-lg text-sm w-full outline-none focus:ring-2 focus:ring-primary focus:border-transparent" />
+                            <button type="submit" className="bg-accent text-white py-2.5 px-4 rounded-lg font-bold text-sm hover:bg-opacity-90 transition-all shadow-md shadow-red-100 flex items-center justify-center gap-2">
+                                <Plus className="w-4 h-4"/> Save Building
+                            </button>
+                        </form>
+                    </div>
+
+                    <div className="bg-white p-6 rounded-xl shadow border border-gray-100">
+                        <h2 className="text-xl font-bold text-primary mb-4 border-b border-gray-100 pb-4">Manage Buildings</h2>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {buildings.map(b => (
+                                <div key={b.id} className="border border-gray-200 rounded-xl p-4 hover:shadow-md transition-shadow relative group bg-gray-50/50">
+                                    <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <button onClick={() => handleDeleteBuilding(b.id)} className="text-red-500 hover:bg-red-50 p-2 rounded-lg transition-colors">
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                    <h3 className="font-bold text-gray-800 flex items-center gap-2"><Building className="w-4 h-4 text-primary"/> {b.name}</h3>
+                                    <p className="text-sm text-gray-500 mt-1">{b.description || 'No description'}</p>
+                                    <div className="mt-4 pt-3 border-t border-gray-100 text-xs text-gray-400 font-mono">
+                                        Building ID: #{b.id}
+                                    </div>
+                                </div>
+                            ))}
+                            {buildings.length === 0 && (
+                                <p className="text-gray-500 text-sm col-span-full py-8 text-center">No buildings configured. Create one above.</p>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* TAB: MANAGE FLOORS */}
+            {activeTab === 'floors' && (
+                <div className="space-y-6 animate-in fade-in duration-200">
+                    <div className="bg-white p-6 rounded-xl shadow border border-gray-100">
+                        <h2 className="text-xl font-bold text-primary mb-4 flex items-center gap-2">
+                            <Layers className="text-accent"/> Add New Floor
+                        </h2>
+                        <form onSubmit={handleAddFloor} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <select required value={newFloor.buildingId} onChange={e=>setNewFloor({...newFloor, buildingId: e.target.value})} className="p-2.5 border rounded-lg text-sm w-full outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                                <option value="">Select Building...</option>
+                                {buildings.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                            </select>
+                            <input type="text" placeholder="Floor Name (e.g. Ground Floor)" required value={newFloor.floorName} onChange={e=>setNewFloor({...newFloor, floorName: e.target.value})} className="p-2.5 border rounded-lg text-sm w-full outline-none focus:ring-2 focus:ring-primary focus:border-transparent" />
+                            <input type="number" placeholder="Floor Number (e.g. 0, 1, -1)" required value={newFloor.floorNumber} onChange={e=>setNewFloor({...newFloor, floorNumber: e.target.value})} className="p-2.5 border rounded-lg text-sm w-full outline-none focus:ring-2 focus:ring-primary focus:border-transparent" />
+                            
+                            <div className="col-span-full">
+                                <label className="block text-sm font-semibold text-gray-700 mb-2">Upload Map Image (Optional)</label>
+                                <input type="file" onChange={e => setMapFile(e.target.files[0])} accept="image/*" className="block w-full text-sm text-gray-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 transition-colors" />
+                            </div>
+
+                            <div className="col-span-full flex justify-end mt-2">
+                                <button type="submit" className="bg-accent text-white py-2.5 px-6 rounded-lg font-bold text-sm hover:bg-opacity-90 transition-all shadow-md shadow-red-100 flex items-center justify-center gap-2">
+                                    <Plus className="w-4 h-4"/> Save Floor
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div className="bg-white p-6 rounded-xl shadow border border-gray-100">
+                        <h2 className="text-xl font-bold text-primary mb-4 border-b border-gray-100 pb-4">Manage Floors</h2>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left border-collapse">
+                                <thead>
+                                    <tr className="bg-gray-50 border-b">
+                                        <th className="p-3.5 text-xs font-bold text-gray-500 uppercase tracking-wider">Building</th>
+                                        <th className="p-3.5 text-xs font-bold text-gray-500 uppercase tracking-wider">Floor Name</th>
+                                        <th className="p-3.5 text-xs font-bold text-gray-500 uppercase tracking-wider">Floor Number</th>
+                                        <th className="p-3.5 text-xs font-bold text-gray-500 uppercase tracking-wider">Map Image</th>
+                                        <th className="p-3.5 text-xs font-bold text-gray-500 uppercase tracking-wider">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {floors.map(f => (
+                                        <tr key={f.id} className="border-b hover:bg-gray-50/55 transition-colors">
+                                            <td className="p-3.5 text-sm font-bold text-gray-800">{f.building?.name || 'Unknown'}</td>
+                                            <td className="p-3.5 text-sm font-bold text-gray-800">{f.floorName}</td>
+                                            <td className="p-3.5 text-sm font-mono">{f.floorNumber}</td>
+                                            <td className="p-3.5 text-sm">
+                                                {f.mapImageUrl ? <a href={`http://localhost:8080${f.mapImageUrl}`} target="_blank" rel="noreferrer" className="text-blue-500 hover:underline">View Map</a> : <span className="text-gray-300 italic">None</span>}
+                                            </td>
+                                            <td className="p-3.5">
+                                                <button onClick={() => handleDeleteFloor(f.id)} className="text-red-500 hover:bg-red-50 p-2 rounded-lg transition-colors" title="Delete Floor">
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                            {floors.length === 0 && (
+                                <p className="text-center py-10 text-gray-500 text-sm">No floors configured.</p>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* TAB: MANAGE LOCATIONS */}
             {activeTab === 'locations' && (
                 <div className="space-y-6">
                     {/* Expandable Add Location drawer trigger bar */}
@@ -331,7 +576,20 @@ const AdminDashboard = () => {
                             <form onSubmit={handleAddLocation} className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <input type="text" placeholder="Location Name" required value={newLoc.name} onChange={e=>setNewLoc({...newLoc, name: e.target.value})} className="p-2.5 border rounded-lg text-sm w-full outline-none focus:ring-2 focus:ring-primary focus:border-transparent" />
                                 <input type="text" placeholder="Description" value={newLoc.description} onChange={e=>setNewLoc({...newLoc, description: e.target.value})} className="p-2.5 border rounded-lg text-sm w-full outline-none focus:ring-2 focus:ring-primary focus:border-transparent" />
-                                <input type="text" placeholder="Floor (e.g. Ground, 1st)" value={newLoc.floor} onChange={e=>setNewLoc({...newLoc, floor: e.target.value})} className="p-2.5 border rounded-lg text-sm w-full outline-none focus:ring-2 focus:ring-primary focus:border-transparent" />
+                                <select required value={newLoc.floorId} onChange={e=>setNewLoc({...newLoc, floorId: e.target.value})} className="p-2.5 border rounded-lg text-sm w-full outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                                    <option value="">Select Floor...</option>
+                                    {floors.map(f => (
+                                        <option key={f.id} value={f.id}>{f.building?.name} - {f.floorName}</option>
+                                    ))}
+                                </select>
+                                <select required value={newLoc.type} onChange={e=>setNewLoc({...newLoc, type: e.target.value})} className="p-2.5 border rounded-lg text-sm w-full outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                                    <option value="ROOM">Room</option>
+                                    <option value="CORRIDOR">Corridor</option>
+                                    <option value="STAIRS">Stairs</option>
+                                    <option value="ELEVATOR">Elevator</option>
+                                    <option value="ENTRANCE">Entrance</option>
+                                    <option value="EXIT">Exit</option>
+                                </select>
                                 <input type="number" placeholder="X Coordinate (Integer)" required value={newLoc.xCoordinate} onChange={e=>setNewLoc({...newLoc, xCoordinate: e.target.value})} className="p-2.5 border rounded-lg text-sm w-full outline-none focus:ring-2 focus:ring-primary focus:border-transparent" />
                                 <input type="number" placeholder="Y Coordinate (Integer)" required value={newLoc.yCoordinate} onChange={e=>setNewLoc({...newLoc, yCoordinate: e.target.value})} className="p-2.5 border rounded-lg text-sm w-full outline-none focus:ring-2 focus:ring-primary focus:border-transparent" />
                                 <button type="submit" className="bg-accent text-white py-2.5 px-4 rounded-lg font-bold text-sm hover:bg-opacity-90 transition-all shadow-md shadow-red-100">
@@ -359,9 +617,10 @@ const AdminDashboard = () => {
                                     className="p-2 border rounded-lg text-sm w-full sm:w-32 outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                                 >
                                     <option value="">All Floors</option>
-                                    {uniqueFloors.map(floor => (
-                                        <option key={floor} value={floor}>{floor}</option>
-                                    ))}
+                                    {uniqueFloors.map(floorId => {
+                                        const floorObj = floors.find(f => f.id === floorId);
+                                        return <option key={floorId} value={floorId}>{floorObj ? floorObj.floorName : `Floor ID: ${floorId}`}</option>
+                                    })}
                                 </select>
                             </div>
                         </div>
@@ -383,7 +642,7 @@ const AdminDashboard = () => {
                                             <td className="p-3.5 text-sm text-gray-500">#{loc.id}</td>
                                             <td className="p-3.5 text-sm font-bold text-gray-800">{loc.name}</td>
                                             <td className="p-3.5 text-sm text-gray-600 font-mono">({loc.xCoordinate}, {loc.yCoordinate})</td>
-                                            <td className="p-3.5 text-sm">{loc.floor || <span className="text-gray-300 italic">None</span>}</td>
+                                            <td className="p-3.5 text-sm">{loc.floor ? loc.floor.floorName : <span className="text-gray-300 italic">None</span>}</td>
                                             <td className="p-3.5 flex items-center gap-2">
                                                 <button onClick={() => setEditingLoc(loc)} className="text-primary hover:bg-blue-50 p-2 rounded-lg transition-colors" title="Edit Location">
                                                     <Edit className="w-4.5 h-4.5" />
@@ -420,21 +679,45 @@ const AdminDashboard = () => {
                             
                             {/* Map Floor select Tab list */}
                             <div className="flex flex-wrap gap-1.5 bg-secondary p-1 rounded-xl">
-                                {['All', ...uniqueFloors].map(floor => (
-                                    <button
-                                        key={floor}
-                                        onClick={() => setActiveMapFloor(floor)}
-                                        className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
-                                            activeMapFloor === floor
-                                                ? 'bg-primary text-white'
-                                                : 'text-primary/70 hover:text-primary hover:bg-white/50'
-                                        }`}
-                                    >
-                                        {floor === 'All' ? 'All Floors' : `Floor ${floor}`}
-                                    </button>
-                                ))}
+                                {['All', ...uniqueFloors].map(floorId => {
+                                    const floorLabel = floorId === 'All' ? 'All Floors' : (floors.find(f => f.id === floorId)?.floorName || `Floor ID: ${floorId}`);
+                                    return (
+                                        <button
+                                            key={floorId}
+                                            onClick={() => setActiveMapFloor(floorId)}
+                                            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                                                activeMapFloor === floorId
+                                                    ? 'bg-primary text-white'
+                                                    : 'text-primary/70 hover:text-primary hover:bg-white/50'
+                                            }`}
+                                        >
+                                            {floorLabel}
+                                        </button>
+                                    );
+                                })}
                             </div>
                         </div>
+
+                        {graphHealth && (
+                            <div className={`p-4 rounded-xl border flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between animate-in fade-in ${graphHealth.healthy ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                                <div>
+                                    <h4 className={`font-bold flex items-center gap-2 ${graphHealth.healthy ? 'text-green-800' : 'text-red-800'}`}>
+                                        {graphHealth.healthy ? <Check className="w-5 h-5"/> : <AlertCircle className="w-5 h-5"/>} 
+                                        {graphHealth.healthy ? 'Graph is Healthy' : 'Graph Issues Detected'}
+                                    </h4>
+                                    <p className={`text-xs mt-1 ${graphHealth.healthy ? 'text-green-600' : 'text-red-600'}`}>
+                                        {graphHealth.totalLocations} Nodes, {graphHealth.totalConnections} Edges, {graphHealth.totalComponents} Components.
+                                    </p>
+                                </div>
+                                {!graphHealth.healthy && (
+                                    <div className="text-xs text-red-700 space-y-1">
+                                        {graphHealth.isolatedNodes.length > 0 && <p>• {graphHealth.isolatedNodes.length} isolated nodes.</p>}
+                                        {graphHealth.unreachableFloors.length > 0 && <p>• Unreachable floors detected.</p>}
+                                        {graphHealth.totalComponents > 1 && <p>• Graph is broken into {graphHealth.totalComponents} disconnected areas.</p>}
+                                    </div>
+                                )}
+                            </div>
+                        )}
 
                         {/* Blueprint overlay controls */}
                         <div className="bg-secondary/40 p-3 rounded-xl border border-gray-100 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in duration-200">
@@ -481,7 +764,7 @@ const AdminDashboard = () => {
                                     const dest = locations.find(l => l.id === conn.destinationLocation.id);
                                     if (!source || !dest || source.xCoordinate === null || source.yCoordinate === null || dest.xCoordinate === null || dest.yCoordinate === null) return null;
                                     
-                                    const isVisible = activeMapFloor === 'All' || (source.floor === activeMapFloor && dest.floor === activeMapFloor);
+                                    const isVisible = activeMapFloor === 'All' || (source.floor?.id === activeMapFloor && dest.floor?.id === activeMapFloor);
                                     
                                     return (
                                         <g key={conn.id} onClick={() => isVisible && handleDeleteConnection(conn.id)} className={`cursor-pointer transition-all duration-200 ${isVisible ? 'opacity-100' : 'opacity-10'}`}>
@@ -522,7 +805,7 @@ const AdminDashboard = () => {
                                     const cy = scaleY(loc.yCoordinate);
                                     const isStart = startNode && startNode.id === loc.id;
                                     const isEnd = endNode && endNode.id === loc.id;
-                                    const isVisible = activeMapFloor === 'All' || loc.floor === activeMapFloor;
+                                    const isVisible = activeMapFloor === 'All' || loc.floor?.id === activeMapFloor;
 
                                     let fillCol = '#FFFFFF';
                                     let strokeCol = '#94A3B8';
@@ -621,6 +904,40 @@ const AdminDashboard = () => {
                                 <p className="text-[11px] text-gray-400 mt-1 max-w-[200px] leading-normal">Click a Start Node, then click another Target Node on the floor grid</p>
                             </div>
                         )}
+
+                        {/* Route Tester */}
+                        <div className="bg-secondary/30 p-5 rounded-2xl border border-gray-100">
+                            <h3 className="font-bold text-gray-800 text-sm mb-3 flex items-center gap-1.5">
+                                <Compass className="w-4 h-4 text-primary" /> Route Tester
+                            </h3>
+                            <div className="space-y-3">
+                                <select value={testRouteSource} onChange={e=>setTestRouteSource(e.target.value)} className="w-full p-2 border rounded-lg text-xs outline-none focus:ring-1 focus:ring-primary">
+                                    <option value="">Select Source...</option>
+                                    {locations.map(l => <option key={l.id} value={l.id}>{l.name} (Floor {l.floor?.floorName || '?'})</option>)}
+                                </select>
+                                <select value={testRouteDest} onChange={e=>setTestRouteDest(e.target.value)} className="w-full p-2 border rounded-lg text-xs outline-none focus:ring-1 focus:ring-primary">
+                                    <option value="">Select Destination...</option>
+                                    {locations.map(l => <option key={l.id} value={l.id}>{l.name} (Floor {l.floor?.floorName || '?'})</option>)}
+                                </select>
+                                <button onClick={handleTestRoute} className="w-full bg-primary text-white py-2 rounded-lg font-bold text-xs hover:bg-opacity-90 transition-colors">
+                                    Simulate Pathfinding
+                                </button>
+                                
+                                {testRouteResult && (
+                                    <div className="mt-4 p-3 bg-white rounded-lg border border-gray-200">
+                                        <p className="text-xs font-bold text-gray-800 mb-1">Resulting Path ({testRouteResult.totalDistance.toFixed(1)}m):</p>
+                                        <div className="max-h-[150px] overflow-y-auto space-y-1">
+                                            {testRouteResult.steps.map((step, idx) => (
+                                                <div key={idx} className="text-[10px] text-gray-600 flex gap-2">
+                                                    <span className="text-primary font-bold">{idx + 1}.</span> {step.instruction}
+                                                </div>
+                                            ))}
+                                            {testRouteResult.steps.length === 0 && <span className="text-[10px] text-red-500">No valid path found.</span>}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}
@@ -676,12 +993,33 @@ const AdminDashboard = () => {
                             </div>
                             <div>
                                 <label className="block text-sm font-semibold text-gray-700 mb-1">Floor</label>
-                                <input 
-                                    type="text" 
-                                    value={editingLoc.floor || ''} 
-                                    onChange={e=>setEditingLoc({...editingLoc, floor: e.target.value})} 
+                                <select 
+                                    required 
+                                    value={editingLoc.floor?.id || ''} 
+                                    onChange={e=>setEditingLoc({...editingLoc, floor: { id: parseInt(e.target.value) }})} 
                                     className="w-full p-2 border rounded focus:ring-2 focus:ring-primary focus:border-transparent outline-none" 
-                                />
+                                >
+                                    <option value="">Select Floor...</option>
+                                    {floors.map(f => (
+                                        <option key={f.id} value={f.id}>{f.building?.name} - {f.floorName}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-1">Type</label>
+                                <select 
+                                    required 
+                                    value={editingLoc.type || 'ROOM'} 
+                                    onChange={e=>setEditingLoc({...editingLoc, type: e.target.value})} 
+                                    className="w-full p-2 border rounded focus:ring-2 focus:ring-primary focus:border-transparent outline-none" 
+                                >
+                                    <option value="ROOM">Room</option>
+                                    <option value="CORRIDOR">Corridor</option>
+                                    <option value="STAIRS">Stairs</option>
+                                    <option value="ELEVATOR">Elevator</option>
+                                    <option value="ENTRANCE">Entrance</option>
+                                    <option value="EXIT">Exit</option>
+                                </select>
                             </div>
                             <div className="flex gap-4 pt-2">
                                 <button 
