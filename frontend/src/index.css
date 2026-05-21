@@ -7,7 +7,7 @@
     @apply bg-gradient-to-br from-secondary to-[#F5EBE1] text-primary font-sans transition-colors duration-300 min-h-screen;
   }
   .dark body {
-    @apply bg-gradient-to-br from-slate-900 to-[#2A211D] text-secondary;
+    @apply bg-darkBg text-gray-300;
   }
 }
 
@@ -19,7 +19,7 @@
 }
 
 .dark .glass {
-  background: rgba(25, 15, 10, 0.6);
+  background: rgba(22, 27, 34, 0.6);
   border: 1px solid rgba(255, 255, 255, 0.05);
 }
 

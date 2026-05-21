@@ -2,7 +2,7 @@ import React from 'react';
 
 const Footer = () => {
     return (
-        <footer className="bg-gradient-to-r from-primary to-primary-light dark:from-slate-900 dark:to-slate-800 text-secondary p-8 mt-auto shadow-inner transition-colors duration-300">
+        <footer className="bg-gradient-to-r from-primary to-primary-light dark:bg-none dark:bg-darkCard dark:border-t dark:border-darkHover text-secondary p-8 mt-auto shadow-inner transition-colors duration-300">
             <div className="container mx-auto text-center">
                 <h3 className="text-xl font-bold mb-4 hover:scale-105 transition-transform inline-block cursor-default">Indoor Navigation System for Buildings</h3>
                 <p className="text-secondary/80 mb-4 hover:text-white transition-colors cursor-default">Minor Project 2026 | Acropolis Institute of Technology and Research, Indore</p>
