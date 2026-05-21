@@ -1,0 +1,248 @@
+{
+  "users": [
+    {
+      "email": "admin@example.com",
+      "password": "adminpassword",
+      "role": "ROLE_ADMIN"
+    },
+    {
+      "email": "user@example.com",
+      "password": "userpassword",
+      "role": "ROLE_USER"
+    }
+  ],
+  "buildings": [
+    {
+      "name": "Tech Hall",
+      "description": "Main Technology and CS Building"
+    }
+  ],
+  "floors": [
+    {
+      "buildingName": "Tech Hall",
+      "floorNumber": 1,
+      "floorName": "First Floor",
+      "mapImageUrl": "https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&q=80&w=800"
+    },
+    {
+      "buildingName": "Tech Hall",
+      "floorNumber": 2,
+      "floorName": "Second Floor",
+      "mapImageUrl": "https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&q=80&w=800"
+    }
+  ],
+  "locations": [
+    {
+      "name": "Main Entrance",
+      "description": "Tech Hall Ground Entrance",
+      "xCoordinate": 150,
+      "yCoordinate": 450,
+      "floorNumber": 1,
+      "buildingName": "Tech Hall",
+      "type": "ROOM"
+    },
+    {
+      "name": "Lobby",
+      "description": "Ground Floor Main Lobby",
+      "xCoordinate": 300,
+      "yCoordinate": 400,
+      "floorNumber": 1,
+      "buildingName": "Tech Hall",
+      "type": "ROOM"
+    },
+    {
+      "name": "Office 101",
+      "description": "Administrative Office",
+      "xCoordinate": 450,
+      "yCoordinate": 350,
+      "floorNumber": 1,
+      "buildingName": "Tech Hall",
+      "type": "ROOM"
+    },
+    {
+      "name": "Restrooms F1",
+      "description": "Floor 1 Restrooms",
+      "xCoordinate": 200,
+      "yCoordinate": 250,
+      "floorNumber": 1,
+      "buildingName": "Tech Hall",
+      "type": "ROOM"
+    },
+    {
+      "name": "Elevator F1",
+      "description": "Floor 1 Elevator",
+      "xCoordinate": 600,
+      "yCoordinate": 300,
+      "floorNumber": 1,
+      "buildingName": "Tech Hall",
+      "type": "ELEVATOR"
+    },
+    {
+      "name": "Stairs F1",
+      "description": "Floor 1 Stairs",
+      "xCoordinate": 600,
+      "yCoordinate": 150,
+      "floorNumber": 1,
+      "buildingName": "Tech Hall",
+      "type": "STAIRS"
+    },
+    {
+      "name": "Server Room",
+      "description": "Core Server Room",
+      "xCoordinate": 400,
+      "yCoordinate": 200,
+      "floorNumber": 1,
+      "buildingName": "Tech Hall",
+      "type": "ROOM"
+    },
+    {
+      "name": "Elevator F2",
+      "description": "Floor 2 Elevator",
+      "xCoordinate": 600,
+      "yCoordinate": 300,
+      "floorNumber": 2,
+      "buildingName": "Tech Hall",
+      "type": "ELEVATOR"
+    },
+    {
+      "name": "Stairs F2",
+      "description": "Floor 2 Stairs",
+      "xCoordinate": 600,
+      "yCoordinate": 150,
+      "floorNumber": 2,
+      "buildingName": "Tech Hall",
+      "type": "STAIRS"
+    },
+    {
+      "name": "Lobby F2",
+      "description": "Second Floor Lobby",
+      "xCoordinate": 300,
+      "yCoordinate": 300,
+      "floorNumber": 2,
+      "buildingName": "Tech Hall",
+      "type": "ROOM"
+    },
+    {
+      "name": "Conference Room",
+      "description": "Executive Conference Room",
+      "xCoordinate": 150,
+      "yCoordinate": 250,
+      "floorNumber": 2,
+      "buildingName": "Tech Hall",
+      "type": "ROOM"
+    },
+    {
+      "name": "Lab 201",
+      "description": "Advanced Lab",
+      "xCoordinate": 450,
+      "yCoordinate": 200,
+      "floorNumber": 2,
+      "buildingName": "Tech Hall",
+      "type": "ROOM"
+    },
+    {
+      "name": "Office 202",
+      "description": "Professor Office",
+      "xCoordinate": 300,
+      "yCoordinate": 150,
+      "floorNumber": 2,
+      "buildingName": "Tech Hall",
+      "type": "ROOM"
+    }
+  ],
+  "connections": [
+    {
+      "sourceName": "Main Entrance",
+      "destinationName": "Lobby",
+      "isAccessible": true,
+      "isBidirectional": true,
+      "directionType": "BOTH"
+    },
+    {
+      "sourceName": "Lobby",
+      "destinationName": "Office 101",
+      "isAccessible": true,
+      "isBidirectional": true,
+      "directionType": "BOTH"
+    },
+    {
+      "sourceName": "Lobby",
+      "destinationName": "Restrooms F1",
+      "isAccessible": true,
+      "isBidirectional": true,
+      "directionType": "BOTH"
+    },
+    {
+      "sourceName": "Office 101",
+      "destinationName": "Server Room",
+      "isAccessible": true,
+      "isBidirectional": true,
+      "directionType": "BOTH"
+    },
+    {
+      "sourceName": "Office 101",
+      "destinationName": "Elevator F1",
+      "isAccessible": true,
+      "isBidirectional": true,
+      "directionType": "BOTH"
+    },
+    {
+      "sourceName": "Server Room",
+      "destinationName": "Stairs F1",
+      "isAccessible": true,
+      "isBidirectional": true,
+      "directionType": "BOTH"
+    },
+    {
+      "sourceName": "Elevator F1",
+      "destinationName": "Elevator F2",
+      "distance": 10.0,
+      "isAccessible": true,
+      "isBidirectional": true,
+      "directionType": "UP"
+    },
+    {
+      "sourceName": "Stairs F1",
+      "destinationName": "Stairs F2",
+      "distance": 10.0,
+      "isAccessible": false,
+      "isBidirectional": true,
+      "directionType": "UP"
+    },
+    {
+      "sourceName": "Elevator F2",
+      "destinationName": "Lab 201",
+      "isAccessible": true,
+      "isBidirectional": true,
+      "directionType": "BOTH"
+    },
+    {
+      "sourceName": "Stairs F2",
+      "destinationName": "Lab 201",
+      "isAccessible": true,
+      "isBidirectional": true,
+      "directionType": "BOTH"
+    },
+    {
+      "sourceName": "Lab 201",
+      "destinationName": "Office 202",
+      "isAccessible": true,
+      "isBidirectional": true,
+      "directionType": "BOTH"
+    },
+    {
+      "sourceName": "Office 202",
+      "destinationName": "Lobby F2",
+      "isAccessible": true,
+      "isBidirectional": true,
+      "directionType": "BOTH"
+    },
+    {
+      "sourceName": "Lobby F2",
+      "destinationName": "Conference Room",
+      "isAccessible": true,
+      "isBidirectional": true,
+      "directionType": "BOTH"
+    }
+  ]
+}
