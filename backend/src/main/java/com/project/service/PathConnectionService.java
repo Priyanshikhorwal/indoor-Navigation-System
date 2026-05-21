@@ -57,6 +57,47 @@ public class PathConnectionService {
     }
 
     @CacheEvict(value = "graph", allEntries = true)
+    public PathConnection updateConnection(Long id, PathConnectionDto dto) {
+        PathConnection connection = pathConnectionRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Path connection not found with id: " + id));
+
+        if (dto.getSourceLocationId().equals(dto.getDestinationLocationId())) {
+            throw new IllegalArgumentException("Cannot create a connection from a location to itself.");
+        }
+
+        Location source = locationRepository.findById(dto.getSourceLocationId())
+                .orElseThrow(() -> new EntityNotFoundException("Source location not found with id: " + dto.getSourceLocationId()));
+        Location destination = locationRepository.findById(dto.getDestinationLocationId())
+                .orElseThrow(() -> new EntityNotFoundException("Destination location not found with id: " + dto.getDestinationLocationId()));
+
+        // Check for duplicate connections excluding this connection
+        List<PathConnection> allConnections = pathConnectionRepository.findAll();
+        for (PathConnection pc : allConnections) {
+            if (!pc.getId().equals(id)) {
+                boolean matchesDirect = pc.getSourceLocation().getId().equals(source.getId()) && pc.getDestinationLocation().getId().equals(destination.getId());
+                boolean matchesReverse = pc.getSourceLocation().getId().equals(destination.getId()) && pc.getDestinationLocation().getId().equals(source.getId());
+                if (matchesDirect || matchesReverse) {
+                    throw new IllegalArgumentException("A connection already exists between these locations.");
+                }
+            }
+        }
+
+        double distance = dto.getDistance() != null ? dto.getDistance() : calculateEuclideanDistance(source, destination);
+
+        connection.setSourceLocation(source);
+        connection.setDestinationLocation(destination);
+        connection.setDistance(distance);
+        connection.setIsAccessible(dto.getIsAccessible() != null ? dto.getIsAccessible() : true);
+        
+        if (dto.getIsBidirectional() != null) {
+            connection.setIsBidirectional(dto.getIsBidirectional());
+        }
+        connection.setDirectionType(dto.getDirectionType());
+
+        return pathConnectionRepository.save(connection);
+    }
+
+    @CacheEvict(value = "graph", allEntries = true)
     public void deleteConnection(Long id) {
         if (!pathConnectionRepository.existsById(id)) {
             throw new EntityNotFoundException("Path connection not found with id: " + id);

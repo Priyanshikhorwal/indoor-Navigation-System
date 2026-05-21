@@ -38,17 +38,28 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // Public auth endpoints
                         .requestMatchers("/api/auth/login", "/api/auth/register").permitAll()
-                        // Public read-only endpoints (navigation, location list, connection list)
+                        // Public read-only endpoints (navigation, location list, connection list, buildings, floors)
                         .requestMatchers(HttpMethod.GET, "/api/locations", "/api/locations/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/connections", "/api/connections/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/buildings", "/api/buildings/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/floors", "/api/floors/**").permitAll()
                         .requestMatchers("/api/path/**").permitAll()
                         // Admin-only mutations for locations
-                        .requestMatchers(HttpMethod.POST, "/api/locations/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.PUT, "/api/locations/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.DELETE, "/api/locations/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/locations", "/api/locations/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/locations", "/api/locations/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/locations", "/api/locations/**").hasRole("ADMIN")
                         // Admin-only mutations for connections
-                        .requestMatchers(HttpMethod.POST, "/api/connections/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.DELETE, "/api/connections/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/connections", "/api/connections/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/connections", "/api/connections/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/connections", "/api/connections/**").hasRole("ADMIN")
+                        // Admin-only mutations for buildings
+                        .requestMatchers(HttpMethod.POST, "/api/buildings", "/api/buildings/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/buildings", "/api/buildings/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/buildings", "/api/buildings/**").hasRole("ADMIN")
+                        // Admin-only mutations for floors
+                        .requestMatchers(HttpMethod.POST, "/api/floors", "/api/floors/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/floors", "/api/floors/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/floors", "/api/floors/**").hasRole("ADMIN")
                         // Catch-all: everything else requires authentication
                         .requestMatchers("/api/**").authenticated()
                         // Allow static resources and SPA routing

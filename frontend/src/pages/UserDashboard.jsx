@@ -85,14 +85,14 @@ const UserDashboard = () => {
     const totalConnectionsCount = locations.length > 1 ? Math.floor(locations.length * 1.3) : 0; // Estimation
 
     return (
-        <div className="min-h-screen bg-secondary py-10 px-4">
+        <div className="min-h-screen bg-gradient-to-br from-secondary to-secondary-dark py-10 px-4">
             <div className="container mx-auto max-w-7xl space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-300">
                 
                 {/* Header Widget */}
-                <div className="bg-white rounded-3xl p-8 border border-gray-100 shadow-md flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative overflow-hidden">
-                    <div className="absolute -top-12 -right-12 w-48 h-48 bg-primary/5 rounded-full blur-2xl pointer-events-none"></div>
+                <div className="bg-white rounded-3xl p-8 border border-gray-100 shadow-soft flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative overflow-hidden">
+                    <div className="absolute -top-12 -right-12 w-48 h-48 bg-gradient-to-r from-primary to-primary-light/5 rounded-full blur-2xl pointer-events-none"></div>
                     <div className="flex items-center gap-5 relative z-10">
-                        <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center text-white shadow-lg shadow-blue-900/10">
+                        <div className="w-16 h-16 bg-gradient-to-r from-primary to-primary-light rounded-2xl flex items-center justify-center text-white shadow-soft-lg shadow-blue-900/10">
                             <User className="w-8 h-8" />
                         </div>
                         <div>
@@ -108,7 +108,7 @@ const UserDashboard = () => {
                     <div className="flex gap-3 relative z-10 w-full md:w-auto">
                         <Link 
                             to="/navigate" 
-                            className="flex-1 md:flex-initial text-center bg-accent text-white px-6 py-3 rounded-2xl font-bold hover:bg-opacity-90 transition-all shadow-md shadow-red-200 flex items-center justify-center gap-2"
+                            className="flex-1 md:flex-initial text-center bg-gradient-to-r from-accent to-accent-light text-white px-6 py-3 rounded-2xl font-bold hover:bg-opacity-90 transition-all shadow-soft shadow-red-200 flex items-center justify-center gap-2"
                         >
                             <Compass className="w-4 h-4" />
                             <span>Launch Map Terminal</span>
@@ -131,7 +131,7 @@ const UserDashboard = () => {
                         { title: "My Favorite Paths", val: favorites.length, icon: <Star className="text-amber-500" />, desc: "Pinned Travel Quicklinks" },
                         { title: "Recent Routes Searched", val: history.length, icon: <Clock className="text-accent" />, desc: "Travel Query Logs" }
                     ].map((stat, idx) => (
-                        <div key={idx} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between">
+                        <div key={idx} className="bg-white p-5 rounded-2xl shadow-soft border border-gray-100 flex flex-col justify-between">
                             <div className="flex items-center justify-between">
                                 <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{stat.title}</span>
                                 <div className="p-2 bg-gray-50 rounded-xl">{stat.icon}</div>
@@ -151,7 +151,7 @@ const UserDashboard = () => {
                     <div className="lg:col-span-8 space-y-8">
                         
                         {/* Favorites Widget */}
-                        <div className="bg-white rounded-3xl shadow-sm p-6 border border-gray-100">
+                        <div className="bg-white rounded-3xl shadow-soft p-6 border border-gray-100">
                             <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-50">
                                 <h2 className="text-lg font-black text-primary flex items-center gap-2">
                                     <Star className="text-amber-400 fill-amber-400" />
@@ -183,7 +183,7 @@ const UserDashboard = () => {
                                         <div 
                                             key={index} 
                                             onClick={() => handleLaunchRoute(fav.sourceId, fav.destinationId)}
-                                            className="group bg-gray-50/50 hover:bg-primary/5 p-4 rounded-2xl border border-gray-100 hover:border-primary/10 cursor-pointer transition-all duration-200 flex items-center justify-between relative overflow-hidden"
+                                            className="group bg-gray-50/50 hover:bg-gradient-to-r from-primary to-primary-light/5 p-4 rounded-2xl border border-gray-100 hover:border-primary/10 cursor-pointer transition-all duration-200 flex items-center justify-between relative overflow-hidden"
                                         >
                                             <div className="space-y-2">
                                                 <div className="flex items-center gap-2">
@@ -191,7 +191,7 @@ const UserDashboard = () => {
                                                     <span className="text-xs font-bold text-primary truncate max-w-[150px]">{fav.sourceName}</span>
                                                 </div>
                                                 <div className="flex items-center gap-2">
-                                                    <span className="w-1.5 h-1.5 rounded-full bg-accent"></span>
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-gradient-to-r from-accent to-accent-light"></span>
                                                     <span className="text-xs font-bold text-primary truncate max-w-[150px]">{fav.destinationName}</span>
                                                 </div>
                                                 {fav.floorSummary && (
@@ -209,7 +209,7 @@ const UserDashboard = () => {
                                                 >
                                                     <Trash2 className="w-4 h-4" />
                                                 </button>
-                                                <div className="bg-white p-2 rounded-xl group-hover:bg-primary group-hover:text-white transition-colors shadow-sm">
+                                                <div className="bg-white p-2 rounded-xl group-hover:bg-gradient-to-r from-primary to-primary-light group-hover:text-white transition-colors shadow-soft">
                                                     <ArrowRight className="w-4 h-4" />
                                                 </div>
                                             </div>
@@ -220,7 +220,7 @@ const UserDashboard = () => {
                         </div>
 
                         {/* Recent Travel Logs Timeline */}
-                        <div className="bg-white rounded-3xl shadow-sm p-6 border border-gray-100">
+                        <div className="bg-white rounded-3xl shadow-soft p-6 border border-gray-100">
                             <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-50">
                                 <h2 className="text-lg font-black text-primary flex items-center gap-2">
                                     <Clock className="text-primary" />
@@ -245,7 +245,7 @@ const UserDashboard = () => {
                                     {history.map((hist, idx) => (
                                         <div key={idx} className="ml-6 relative flex flex-col md:flex-row md:items-center justify-between gap-4">
                                             {/* Node Anchor */}
-                                            <div className="absolute -left-[31px] top-0.5 w-3.5 h-3.5 rounded-full border-2 border-white bg-primary flex items-center justify-center">
+                                            <div className="absolute -left-[31px] top-0.5 w-3.5 h-3.5 rounded-full border-2 border-white bg-gradient-to-r from-primary to-primary-light flex items-center justify-center">
                                                 <div className="w-1 h-1 rounded-full bg-white"></div>
                                             </div>
                                             
@@ -266,7 +266,7 @@ const UserDashboard = () => {
 
                                             <button 
                                                 onClick={() => handleLaunchRoute(hist.sourceId, hist.destinationId)}
-                                                className="self-start md:self-auto text-[10px] font-bold text-accent hover:text-primary transition-colors flex items-center gap-1 shrink-0 bg-secondary px-3 py-1.5 rounded-lg border border-gray-150"
+                                                className="self-start md:self-auto text-[10px] font-bold text-accent hover:text-primary transition-colors flex items-center gap-1 shrink-0 bg-gradient-to-br from-secondary to-secondary-dark px-3 py-1.5 rounded-lg border border-gray-150"
                                             >
                                                 <Navigation className="w-3 h-3" />
                                                 <span>Re-navigate</span>
@@ -280,7 +280,7 @@ const UserDashboard = () => {
                     </div>
 
                     {/* Right Column: Quick Travel Launcher */}
-                    <div className="lg:col-span-4 bg-white rounded-3xl p-6 border border-gray-100 shadow-sm space-y-6">
+                    <div className="lg:col-span-4 bg-white rounded-3xl p-6 border border-gray-100 shadow-soft space-y-6">
                         <div>
                             <h2 className="text-base font-black text-primary">Quick travel launcher</h2>
                             <p className="text-xs text-gray-400 mt-1">Prefill and launch pathfinding vectors instantly</p>
@@ -297,7 +297,7 @@ const UserDashboard = () => {
                                         required
                                         value={quickSource}
                                         onChange={(e) => setQuickSource(e.target.value)}
-                                        className="w-full p-3 border border-gray-200 rounded-xl outline-none text-xs focus:ring-2 focus:ring-primary focus:border-transparent transition-all bg-secondary/30"
+                                        className="w-full p-3 border border-gray-200 rounded-xl outline-none text-xs focus:ring-2 focus:ring-primary focus:border-transparent transition-all bg-gradient-to-br from-secondary to-secondary-dark/30"
                                     >
                                         <option value="">Choose start room...</option>
                                         {locations.map(loc => (
@@ -310,14 +310,14 @@ const UserDashboard = () => {
 
                                 <div>
                                     <label className="block text-xs font-bold text-primary/80 uppercase tracking-wider mb-1.5 flex items-center gap-1">
-                                        <div className="w-1.5 h-1.5 rounded-full bg-accent"></div>
+                                        <div className="w-1.5 h-1.5 rounded-full bg-gradient-to-r from-accent to-accent-light"></div>
                                         Destination
                                     </label>
                                     <select 
                                         required
                                         value={quickDest}
                                         onChange={(e) => setQuickDest(e.target.value)}
-                                        className="w-full p-3 border border-gray-200 rounded-xl outline-none text-xs focus:ring-2 focus:ring-primary focus:border-transparent transition-all bg-secondary/30"
+                                        className="w-full p-3 border border-gray-200 rounded-xl outline-none text-xs focus:ring-2 focus:ring-primary focus:border-transparent transition-all bg-gradient-to-br from-secondary to-secondary-dark/30"
                                     >
                                         <option value="">Choose target room...</option>
                                         {locations.map(loc => (
@@ -331,7 +331,7 @@ const UserDashboard = () => {
                                 <button
                                     type="submit"
                                     disabled={!quickSource || !quickDest}
-                                    className="w-full bg-primary text-white py-3.5 rounded-xl font-bold text-xs hover:bg-opacity-95 transition-all disabled:opacity-50 flex items-center justify-center gap-1.5 shadow-md shadow-blue-900/10"
+                                    className="w-full bg-gradient-to-r from-primary to-primary-light text-white py-3.5 rounded-xl font-bold text-xs hover:bg-opacity-95 transition-all disabled:opacity-50 flex items-center justify-center gap-1.5 shadow-soft shadow-blue-900/10"
                                 >
                                     <Navigation className="w-3.5 h-3.5" />
                                     <span>Calculate Shortest Route</span>
@@ -339,7 +339,7 @@ const UserDashboard = () => {
                             </form>
                         )}
 
-                        <div className="p-4 bg-primary/5 rounded-2xl border border-primary/10 text-[10px] text-primary/80 leading-relaxed flex gap-2">
+                        <div className="p-4 bg-gradient-to-r from-primary to-primary-light/5 rounded-2xl border border-primary/10 text-[10px] text-primary/80 leading-relaxed flex gap-2">
                             <Compass className="w-4 h-4 shrink-0 text-primary mt-0.5" />
                             <span>
                                 <strong>Coordinate Normalizer Note:</strong> Rooms are plotted on physical map coordinates. The system automatically finds transitions like stairs and elevations!

@@ -27,6 +27,11 @@ public class PathConnectionController {
         return ResponseEntity.ok(pathConnectionService.createConnection(dto));
     }
 
+    @PutMapping("/{id}")
+    public ResponseEntity<PathConnection> updateConnection(@PathVariable Long id, @Valid @RequestBody PathConnectionDto dto) {
+        return ResponseEntity.ok(pathConnectionService.updateConnection(id, dto));
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteConnection(@PathVariable Long id) {
         pathConnectionService.deleteConnection(id);

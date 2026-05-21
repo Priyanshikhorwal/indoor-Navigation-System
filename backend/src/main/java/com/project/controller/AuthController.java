@@ -25,6 +25,10 @@ public class AuthController {
     private final JwtUtil jwtUtil;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final jakarta.servlet.http.HttpServletRequest httpServletRequest;
+
+    @org.springframework.beans.factory.annotation.Value("${admin.registration.secret:super-secret-admin-token-123}")
+    private String adminRegistrationSecret;
 
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
@@ -53,6 +57,15 @@ public class AuthController {
                 role = "ROLE_" + cleanRole;
             } else {
                 role = cleanRole;
+            }
+        }
+
+        if ("ROLE_ADMIN".equals(role)) {
+            if (userRepository.existsByRole("ROLE_ADMIN")) {
+                String secretHeader = httpServletRequest.getHeader("X-Admin-Secret");
+                if (!adminRegistrationSecret.equals(secretHeader)) {
+                    throw new RuntimeException("Administrator registration is protected. Invalid registration secret.");
+                }
             }
         }
 

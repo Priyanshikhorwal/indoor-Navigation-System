@@ -32,8 +32,9 @@ public class Location {
     @Column(nullable = false)
     private Integer yCoordinate;
     
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "floor_id", nullable = false)
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Floor floor;
 
     @Column(nullable = false)

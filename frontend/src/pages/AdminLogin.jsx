@@ -100,14 +100,14 @@ const AdminLogin = ({ mode = 'login' }) => {
     };
 
     return (
-        <div className="min-h-[85vh] flex items-center justify-center bg-secondary px-4 py-12 relative overflow-hidden">
+        <div className="min-h-[85vh] flex items-center justify-center bg-gradient-to-br from-secondary to-secondary-dark px-4 py-12 relative overflow-hidden">
             {/* Dark administrative theme backdrop circles */}
-            <div className="absolute top-10 left-10 w-72 h-72 rounded-full bg-primary/15 blur-3xl pointer-events-none"></div>
-            <div className="absolute bottom-10 right-10 w-80 h-80 rounded-full bg-accent/15 blur-3xl pointer-events-none"></div>
+            <div className="absolute top-10 left-10 w-72 h-72 rounded-full bg-gradient-to-r from-primary to-primary-light/15 blur-3xl pointer-events-none"></div>
+            <div className="absolute bottom-10 right-10 w-80 h-80 rounded-full bg-gradient-to-r from-accent to-accent-light/15 blur-3xl pointer-events-none"></div>
 
-            <div className="bg-white rounded-3xl shadow-xl w-full max-w-lg border border-gray-100 overflow-hidden relative z-10 animate-in fade-in zoom-in-95 duration-300">
+            <div className="bg-white rounded-3xl shadow-soft-lg w-full max-w-lg border border-gray-100 overflow-hidden relative z-10 animate-in fade-in zoom-in-95 duration-300">
                 {/* Header Graphic */}
-                <div className="bg-primary text-white p-8 text-center relative">
+                <div className="bg-gradient-to-r from-primary to-primary-light text-white p-8 text-center relative">
                     <div className="absolute top-0 left-0 w-full h-full opacity-10 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-white via-transparent to-transparent"></div>
                     <div className="mx-auto bg-white/10 w-16 h-16 rounded-2xl flex items-center justify-center mb-4 backdrop-blur shadow-inner">
                         {activeTab === 'register' ? (
@@ -130,7 +130,7 @@ const AdminLogin = ({ mode = 'login' }) => {
                         onClick={() => handleTabChange('admin')}
                         className={`flex-1 py-3 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 ${
                             activeTab === 'admin'
-                                ? 'bg-white text-primary shadow-sm'
+                                ? 'bg-white text-primary shadow-soft'
                                 : 'text-gray-500 hover:text-primary'
                         }`}
                     >
@@ -141,7 +141,7 @@ const AdminLogin = ({ mode = 'login' }) => {
                         onClick={() => handleTabChange('register')}
                         className={`flex-1 py-3 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 ${
                             activeTab === 'register'
-                                ? 'bg-white text-primary shadow-sm'
+                                ? 'bg-white text-primary shadow-soft'
                                 : 'text-gray-500 hover:text-primary'
                         }`}
                     >
@@ -154,7 +154,7 @@ const AdminLogin = ({ mode = 'login' }) => {
                     {/* Alerts */}
                     {error && (
                         <div className="bg-red-50 text-accent p-4 rounded-2xl mb-6 text-xs font-semibold border border-red-100 flex items-center gap-2 animate-in fade-in slide-in-from-top-1 duration-200">
-                            <span className="w-1.5 h-1.5 rounded-full bg-accent animate-ping shrink-0"></span>
+                            <span className="w-1.5 h-1.5 rounded-full bg-gradient-to-r from-accent to-accent-light animate-ping shrink-0"></span>
                             <span>{error}</span>
                         </div>
                     )}
@@ -224,7 +224,7 @@ const AdminLogin = ({ mode = 'login' }) => {
                         <button
                             type="submit"
                             disabled={loading}
-                            className="w-full bg-primary text-white py-4 rounded-2xl font-bold hover:bg-opacity-95 transition-all disabled:opacity-50 mt-4 flex items-center justify-center gap-2 group shadow-lg shadow-blue-900/10"
+                            className="w-full bg-gradient-to-r from-primary to-primary-light text-white py-4 rounded-2xl font-bold hover:bg-opacity-95 transition-all disabled:opacity-50 mt-4 flex items-center justify-center gap-2 group shadow-soft-lg shadow-blue-900/10"
                         >
                             <span>
                                 {loading

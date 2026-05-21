@@ -4,15 +4,15 @@ import { Link } from 'react-router-dom';
 
 const Home = () => {
     return (
-        <div className="bg-secondary min-h-screen">
+        <div className="bg-gradient-to-br from-secondary to-secondary-dark min-h-screen">
             {/* Hero Section */}
-            <div className="bg-primary text-white py-20 px-4 text-center relative overflow-hidden">
+            <div className="bg-gradient-to-r from-primary to-primary-light text-white py-20 px-4 text-center relative overflow-hidden">
                 <div className="absolute top-0 left-0 w-full h-full opacity-10 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-white via-transparent to-transparent"></div>
                 <h1 className="text-5xl font-bold mb-6 relative z-10">Smart Indoor Navigation</h1>
                 <p className="text-xl max-w-2xl mx-auto mb-10 text-gray-200 relative z-10">
                     Locate rooms, labs, offices, and departments inside buildings effortlessly using shortest path algorithms and interactive routing.
                 </p>
-                <Link to="/navigate" className="bg-accent text-white px-8 py-4 rounded-full font-bold text-lg hover:bg-opacity-90 transition-all shadow-lg relative z-10">
+                <Link to="/navigate" className="inline-block bg-gradient-to-r from-accent to-accent-light text-white px-8 py-4 rounded-full font-bold text-lg hover:scale-105 active:scale-95 transition-all shadow-soft-lg relative z-10 hover:shadow-xl">
                     Start Navigating
                 </Link>
             </div>
@@ -27,8 +27,8 @@ const Home = () => {
                         { icon: <Zap className="w-8 h-8"/>, title: "Fast & Responsive", desc: "Works seamlessly on mobile and desktop." },
                         { icon: <Lock className="w-8 h-8"/>, title: "Secure Admin", desc: "JWT secured dashboard for map management." }
                     ].map((feature, idx) => (
-                        <div key={idx} className="bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition-all border border-gray-100 flex flex-col items-center text-center">
-                            <div className="text-accent mb-4 bg-red-50 p-4 rounded-full">{feature.icon}</div>
+                        <div key={idx} className="bg-white p-6 rounded-xl shadow-soft hover:shadow-soft-lg hover:-translate-y-2 transition-all duration-300 border border-gray-100 flex flex-col items-center text-center cursor-default group">
+                            <div className="text-accent mb-4 bg-orange-50 group-hover:bg-accent group-hover:text-white transition-colors duration-300 p-4 rounded-full">{feature.icon}</div>
                             <h3 className="text-xl font-bold text-primary mb-2">{feature.title}</h3>
                             <p className="text-gray-600">{feature.desc}</p>
                         </div>
@@ -48,11 +48,11 @@ const Home = () => {
                             It leverages the A* search algorithm to compute the shortest possible route between a source and a destination, providing a highly optimized pathfinding solution.
                         </p>
                     </div>
-                    <div className="flex-1 glass p-8 rounded-2xl shadow-sm border border-gray-100 bg-gray-50">
+                    <div className="flex-1 glass p-8 rounded-2xl shadow-soft hover:shadow-soft-lg transition-shadow duration-300 border border-gray-100 bg-gray-50/50">
                         <h2 className="text-2xl font-bold text-primary mb-6">Technology Stack</h2>
                         <div className="flex flex-wrap gap-3">
                             {['React', 'Tailwind CSS', 'Spring Boot', 'Java', 'PostgreSQL', 'Spring Security', 'JWT', 'A* Algorithm'].map((tech) => (
-                                <span key={tech} className="bg-white px-4 py-2 rounded-full text-sm font-semibold text-primary shadow-sm border border-gray-200">
+                                <span key={tech} className="bg-white px-4 py-2 rounded-full text-sm font-semibold text-primary shadow-soft border border-gray-200 hover:bg-gradient-to-r hover:from-primary hover:to-primary-light hover:text-white hover:scale-105 transition-all duration-300 cursor-default">
                                     {tech}
                                 </span>
                             ))}
