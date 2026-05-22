@@ -35,24 +35,45 @@ public class NavigationServiceTest {
     private Location loc3;
     private Location loc4;
 
+    private Location createLocation(Long id, String name, String description, Integer x, Integer y) {
+        Location loc = new Location();
+        loc.setId(id);
+        loc.setName(name);
+        loc.setDescription(description);
+        loc.setXCoordinate(x);
+        loc.setYCoordinate(y);
+        return loc;
+    }
+
+    private PathConnection createConnection(Long id, Location source, Location dest, Double dist, Boolean accessible) {
+        PathConnection conn = new PathConnection();
+        conn.setId(id);
+        conn.setSourceLocation(source);
+        conn.setDestinationLocation(dest);
+        conn.setDistance(dist);
+        conn.setIsAccessible(accessible);
+        conn.setIsBidirectional(true);
+        conn.setDirectionType("BOTH");
+        return conn;
+    }
+
     @BeforeEach
     public void setUp() {
-        // ID, Name, Description, X, Y, Floor
-        loc1 = new Location(1L, "Room A", "Source room on floor 1", 10, 10, "1");
-        loc2 = new Location(2L, "Room B", "Intermediate room on floor 1", 20, 10, "1");
-        loc3 = new Location(3L, "Room C", "Intermediate room on floor 2", 20, 20, "2");
-        loc4 = new Location(4L, "Room D", "Destination on floor 2", 30, 20, "2");
+        loc1 = createLocation(1L, "Room A", "Source room on floor 1", 10, 10);
+        loc2 = createLocation(2L, "Room B", "Intermediate room on floor 1", 20, 10);
+        loc3 = createLocation(3L, "Room C", "Intermediate room on floor 2", 20, 20);
+        loc4 = createLocation(4L, "Room D", "Destination on floor 2", 30, 20);
     }
 
     @Test
     public void testFindShortestPath_Success() {
         // Define path connections
         // Connection 1: Room A to Room B (distance = 10, accessible = true)
-        PathConnection conn1 = new PathConnection(1L, loc1, loc2, 10.0, true);
+        PathConnection conn1 = createConnection(1L, loc1, loc2, 10.0, true);
         // Connection 2: Room B to Room C (distance = 15, accessible = true)
-        PathConnection conn2 = new PathConnection(2L, loc2, loc3, 15.0, true);
+        PathConnection conn2 = createConnection(2L, loc2, loc3, 15.0, true);
         // Connection 3: Room C to Room D (distance = 10, accessible = true)
-        PathConnection conn3 = new PathConnection(3L, loc3, loc4, 10.0, true);
+        PathConnection conn3 = createConnection(3L, loc3, loc4, 10.0, true);
 
         when(locationRepository.findById(1L)).thenReturn(Optional.of(loc1));
         when(locationRepository.findById(4L)).thenReturn(Optional.of(loc4));
@@ -71,11 +92,11 @@ public class NavigationServiceTest {
     @Test
     public void testFindShortestPath_WheelchairAccessSkipsInaccessible() {
         // Connection 1: Room A to Room B (distance = 10, accessible = true)
-        PathConnection conn1 = new PathConnection(1L, loc1, loc2, 10.0, true);
+        PathConnection conn1 = createConnection(1L, loc1, loc2, 10.0, true);
         // Connection 2: Room B to Room C (distance = 15, accessible = false - no ramp/elevator)
-        PathConnection conn2 = new PathConnection(2L, loc2, loc3, 15.0, false);
+        PathConnection conn2 = createConnection(2L, loc2, loc3, 15.0, false);
         // Connection 3: Room C to Room D (distance = 10, accessible = true)
-        PathConnection conn3 = new PathConnection(3L, loc3, loc4, 10.0, true);
+        PathConnection conn3 = createConnection(3L, loc3, loc4, 10.0, true);
 
         when(locationRepository.findById(1L)).thenReturn(Optional.of(loc1));
         when(locationRepository.findById(4L)).thenReturn(Optional.of(loc4));

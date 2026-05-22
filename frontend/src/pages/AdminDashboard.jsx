@@ -525,7 +525,7 @@ const AdminDashboard = () => {
                                             <td className="p-3.5 text-sm font-bold text-gray-800">{f.floorName}</td>
                                             <td className="p-3.5 text-sm font-mono">{f.floorNumber}</td>
                                             <td className="p-3.5 text-sm">
-                                                {f.mapImageUrl ? <a href={`http://localhost:8080${f.mapImageUrl}`} target="_blank" rel="noreferrer" className="text-blue-500 hover:underline">View Map</a> : <span className="text-gray-300 italic">None</span>}
+                                                {f.mapImageUrl ? <a href={`http://localhost:8081${f.mapImageUrl}`} target="_blank" rel="noreferrer" className="text-blue-500 hover:underline">View Map</a> : <span className="text-gray-300 italic">None</span>}
                                             </td>
                                             <td className="p-3.5">
                                                 <button onClick={() => handleDeleteFloor(f.id)} className="text-red-500 hover:bg-red-50 p-2 rounded-lg transition-colors" title="Delete Floor">
