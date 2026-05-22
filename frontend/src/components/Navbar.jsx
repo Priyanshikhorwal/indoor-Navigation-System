@@ -89,11 +89,12 @@ const Navbar = () => {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '28px' }} className="hidden-mobile">
                     <Link to="/" style={navLinkStyle} onMouseEnter={e => e.target.style.color = TEXT_LT} onMouseLeave={e => e.target.style.color = TEXT_MID}>Home</Link>
                     <Link to="/navigate" style={navLinkStyle} onMouseEnter={e => e.target.style.color = TEXT_LT} onMouseLeave={e => e.target.style.color = TEXT_MID}>Navigation</Link>
+                    <Link to="/about" style={navLinkStyle} onMouseEnter={e => e.target.style.color = TEXT_LT} onMouseLeave={e => e.target.style.color = TEXT_MID}>About</Link>
 
                     {token ? (
                         <>
                             {role === 'ROLE_ADMIN'
-                                ? <Link to="/admin-dashboard" style={navLinkStyle} onMouseEnter={e => e.target.style.color = TEXT_LT} onMouseLeave={e => e.target.style.color = TEXT_MID}>Admin Panel</Link>
+                                ? <Link to="/admin/dashboard" style={navLinkStyle} onMouseEnter={e => e.target.style.color = TEXT_LT} onMouseLeave={e => e.target.style.color = TEXT_MID}>Admin Panel</Link>
                                 : <Link to="/user-dashboard" style={navLinkStyle} onMouseEnter={e => e.target.style.color = TEXT_LT} onMouseLeave={e => e.target.style.color = TEXT_MID}>Dashboard</Link>
                             }
                             <span style={{ color: TEXT_MID, fontSize: '0.75rem', border: `0.5px solid #2a6b6b`, borderRadius: '6px', padding: '4px 10px', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={email}>{email}</span>
@@ -115,7 +116,7 @@ const Navbar = () => {
                                 onMouseLeave={e => e.currentTarget.style.background = BTN_MID}>
                                 Register
                             </Link>
-                            <Link to="/admin-login" style={{ ...navLinkStyle, fontSize: '0.75rem', color: '#5aadad' }}
+                            <Link to="/admin/login" style={{ ...navLinkStyle, fontSize: '0.75rem', color: '#5aadad' }}
                                 onMouseEnter={e => e.target.style.color = TEXT_LT} onMouseLeave={e => e.target.style.color = '#5aadad'}>
                                 Admin
                             </Link>
@@ -139,11 +140,12 @@ const Navbar = () => {
                 <div style={{ background: '#1a4a4a', borderTop: `0.5px solid ${BORDER}`, padding: '1rem 1.5rem', display: 'flex', flexDirection: 'column', gap: '14px' }}>
                     <Link to="/" style={{ ...navLinkStyle, color: TEXT_LT }} onClick={() => setMobileOpen(false)}>Home</Link>
                     <Link to="/navigate" style={{ ...navLinkStyle, color: TEXT_LT }} onClick={() => setMobileOpen(false)}>Navigation</Link>
+                    <Link to="/about" style={{ ...navLinkStyle, color: TEXT_LT }} onClick={() => setMobileOpen(false)}>About</Link>
                     {!token && (
                         <>
                             <Link to="/login" style={{ ...navLinkStyle, color: TEXT_MID }} onClick={() => setMobileOpen(false)}>Sign In</Link>
                             <Link to="/register" style={{ ...solidBtnStyle, textAlign: 'center' }} onClick={() => setMobileOpen(false)}>Register</Link>
-                            <Link to="/admin-login" style={{ ...navLinkStyle, color: '#5aadad' }} onClick={() => setMobileOpen(false)}>Admin</Link>
+                            <Link to="/admin/login" style={{ ...navLinkStyle, color: '#5aadad' }} onClick={() => setMobileOpen(false)}>Admin</Link>
                         </>
                     )}
                     {token && (

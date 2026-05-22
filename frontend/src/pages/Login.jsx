@@ -82,7 +82,7 @@ const Login = ({ mode = 'login' }) => {
                 if (userRole === 'ROLE_ADMIN') {
                     setSuccess('Admin authenticated! Redirecting to Dashboard...');
                     setTimeout(() => {
-                        navigate('/admin-dashboard');
+                        navigate('/admin/dashboard');
                     }, 1200);
                 } else {
                     setSuccess('Login successful! Welcome to Indoor Nav.');
@@ -262,7 +262,7 @@ const Login = ({ mode = 'login' }) => {
                                 </span>
                                 <div className="pt-2 border-t border-gray-100/50 dark:border-darkHover mt-1 flex justify-center items-center gap-1.5 text-[11px] text-gray-400">
                                     <span>Are you a map administrator?</span>
-                                    <Link to="/admin-login" className="text-accent dark:text-accent-light font-bold hover:underline">
+                                    <Link to="/admin/login" className="text-accent dark:text-accent-light font-bold hover:underline">
                                         Admin Portal Access
                                     </Link>
                                 </div>
