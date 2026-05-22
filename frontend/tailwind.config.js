@@ -20,9 +20,12 @@ export default {
           DEFAULT: "#C7A27C", // Mid tone
           light: "#D8B89C",
         },
-        darkBg: "#0F1117",
+        darkBg: "#0F172A",
         darkCard: "#161B22",
         darkHover: "#1E293B",
+        activeMenu: "#3B82F6",
+        textLight: "#F8FAFC",
+        iconColor: "#CBD5E1",
       },
       boxShadow: {
         'soft': '0 4px 20px -2px rgba(141, 110, 99, 0.15)',

@@ -23,3 +23,13 @@
   border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
+@layer utilities {
+  .bg-slate-900 { @apply bg-[#0F172A]; }
+  .bg-slate-800 { @apply bg-[#1E293B]; }
+  .bg-blue-500 { @apply bg-[#3B82F6]; }
+  .bg-cyan-500 { @apply bg-[#06B6D4]; }
+  .bg-emerald-500 { @apply bg-[#10B981]; }
+  .text-slate-900 { @apply text-[#0F172A]; }
+  .text-slate-500 { @apply text-[#64748B]; }
+  .border-slate-200 { @apply border-[#E2E8F0]; }
+}
