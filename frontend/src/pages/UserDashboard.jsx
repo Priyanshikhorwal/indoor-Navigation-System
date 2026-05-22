@@ -80,7 +80,13 @@ const UserDashboard = () => {
     };
 
     // Calculate interactive statistics
-    const uniqueFloors = [...new Set(locations.map(loc => loc.floor).filter(Boolean))];
+    const uniqueFloorsMap = {};
+    locations.forEach(loc => {
+        if (loc.floor && loc.floor.id) {
+            uniqueFloorsMap[loc.floor.id] = loc.floor;
+        }
+    });
+    const uniqueFloors = Object.values(uniqueFloorsMap);
     const totalRooms = locations.length;
     const totalConnectionsCount = locations.length > 1 ? Math.floor(locations.length * 1.3) : 0; // Estimation
 
@@ -302,7 +308,7 @@ const UserDashboard = () => {
                                         <option value="">Choose start room...</option>
                                         {locations.map(loc => (
                                             <option key={loc.id} value={loc.id}>
-                                                {loc.name} {loc.floor && `(Floor ${loc.floor})`}
+                                                {loc.name} {loc.floor && `(${loc.floor.floorName})`}
                                             </option>
                                         ))}
                                     </select>
@@ -322,7 +328,7 @@ const UserDashboard = () => {
                                         <option value="">Choose target room...</option>
                                         {locations.map(loc => (
                                             <option key={loc.id} value={loc.id}>
-                                                {loc.name} {loc.floor && `(Floor ${loc.floor})`}
+                                                {loc.name} {loc.floor && `(${loc.floor.floorName})`}
                                             </option>
                                         ))}
                                     </select>

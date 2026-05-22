@@ -285,7 +285,7 @@ const AdminDashboard = () => {
             return;
         }
         try {
-            const res = await api.get(`/navigation/route?sourceId=${testRouteSource}&destinationId=${testRouteDest}&wheelchairAccessible=false`);
+            const res = await api.get(`/path/find?sourceId=${testRouteSource}&destinationId=${testRouteDest}&wheelchairAccessible=false`);
             setTestRouteResult(res.data);
         } catch (err) {
             showToast('Failed to calculate route.', 'error');
@@ -293,17 +293,8 @@ const AdminDashboard = () => {
     };
 
     // Coordinate scale reversals for drag-and-drop mapper
-    const reverseScaleX = (rx) => {
-        const range = maxX - minX || 1;
-        const val = minX + ((rx - padding) / (svgWidth - 2 * padding)) * range;
-        return Math.round(val);
-    };
-
-    const reverseScaleY = (ry) => {
-        const range = maxY - minY || 1;
-        const val = minY + ((ry - padding) / (svgHeight - 2 * padding)) * range;
-        return Math.round(val);
-    };
+    const reverseScaleX = (rx) => Math.round(rx);
+    const reverseScaleY = (ry) => Math.round(ry);
 
     const handlePointerDown = (e, loc) => {
         e.preventDefault();
@@ -318,8 +309,8 @@ const AdminDashboard = () => {
         const rx = ((e.clientX - rect.left) / rect.width) * svgWidth;
         const ry = ((e.clientY - rect.top) / rect.height) * svgHeight;
         
-        const clampedRx = Math.max(padding, Math.min(svgWidth - padding, rx));
-        const clampedRy = Math.max(padding, Math.min(svgHeight - padding, ry));
+        const clampedRx = Math.max(0, Math.min(svgWidth, rx));
+        const clampedRy = Math.max(0, Math.min(svgHeight, ry));
 
         const newX = reverseScaleX(clampedRx);
         const newY = reverseScaleY(clampedRy);
@@ -343,7 +334,7 @@ const AdminDashboard = () => {
         if (finalNode) {
             try {
                 await api.put(`/locations/${finalNode.id}`, finalNode);
-                showToast(`Relocated ${finalNode.name} to coordinates (${finalNode.xCoordinate}, ${finalNode.yCoordinate}, 'success') & saved to database! 📍`);
+                showToast(`Relocated ${finalNode.name} to coordinates (${finalNode.xCoordinate}, ${finalNode.yCoordinate}) & saved to database! 📍`, 'success');
                 setTimeout(() => showToast('', 'success'), 2500);
                 fetchLocations();
             } catch (err) {
@@ -361,29 +352,16 @@ const AdminDashboard = () => {
         return matchesSearch && matchesFloor;
     });
 
-    // SVG scaling variables for blueprint map
-    const padding = 50;
+    // SVG scaling variables for blueprint map - absolute coordinates system (identity scaling)
+    const padding = 0;
     const svgWidth = 800;
-    const svgHeight = 480;
+    const svgHeight = 550;
 
-    const validLocations = locations.filter(l => l.xCoordinate !== null && l.yCoordinate !== null);
-    const xCoords = validLocations.map(l => l.xCoordinate);
-    const yCoords = validLocations.map(l => l.yCoordinate);
+    const scaleX = (x) => x;
+    const scaleY = (y) => y;
 
-    const minX = xCoords.length > 0 ? Math.min(...xCoords) : 0;
-    const maxX = xCoords.length > 0 ? Math.max(...xCoords) : 100;
-    const minY = yCoords.length > 0 ? Math.min(...yCoords) : 0;
-    const maxY = yCoords.length > 0 ? Math.max(...yCoords) : 100;
-
-    const scaleX = (x) => {
-        const range = maxX - minX || 1;
-        return padding + ((x - minX) / range) * (svgWidth - 2 * padding);
-    };
-
-    const scaleY = (y) => {
-        const range = maxY - minY || 1;
-        return padding + ((y - minY) / range) * (svgHeight - 2 * padding);
-    };
+    const activeFloorObj = activeMapFloor !== 'All' ? floors.find(f => f.id === activeMapFloor) : null;
+    const bgMapImageUrl = activeFloorObj?.mapImageUrl ? `http://localhost:8081${activeFloorObj.mapImageUrl}` : null;
 
     if (loading) return <Loader />;
 
@@ -599,7 +577,7 @@ const AdminDashboard = () => {
                                             <td className="p-3.5 text-sm font-bold text-gray-800">{f.floorName}</td>
                                             <td className="p-3.5 text-sm font-mono">{f.floorNumber}</td>
                                             <td className="p-3.5 text-sm">
-                                                {f.mapImageUrl ? <a href={`http://localhost:8080${f.mapImageUrl}`} target="_blank" rel="noreferrer" className="text-blue-500 hover:underline">View Map</a> : <span className="text-gray-300 italic">None</span>}
+                                                {f.mapImageUrl ? <a href={`http://localhost:8081${f.mapImageUrl}`} target="_blank" rel="noreferrer" className="text-blue-500 hover:underline">View Map</a> : <span className="text-gray-300 italic">None</span>}
                                             </td>
                                             <td className="p-3.5">
                                                 <button onClick={() => handleDeleteFloor(f.id)} className="text-red-500 hover:bg-red-50 p-2 rounded-lg transition-colors" title="Delete Floor">
@@ -932,7 +910,7 @@ const AdminDashboard = () => {
                         </div>
 
                         {/* Node map container */}
-                        <div className="relative border border-gray-100 rounded-2xl bg-gray-50 overflow-hidden aspect-[8/4.8]">
+                        <div className="relative border border-gray-100 rounded-2xl bg-gray-50 overflow-hidden aspect-[8/5.5]">
                             <svg 
                                 ref={svgRef}
                                 viewBox={`0 0 ${svgWidth} ${svgHeight}`} 
@@ -946,16 +924,15 @@ const AdminDashboard = () => {
                                     </pattern>
                                 </defs>
                                 
-                                {blueprintUrl ? (
+                                <rect width="100%" height="100%" fill="url(#admin-grid)" />
+                                {(bgMapImageUrl || blueprintUrl) && (
                                     <image 
-                                        href={blueprintUrl} 
+                                        href={bgMapImageUrl || blueprintUrl} 
                                         width="100%" 
                                         height="100%" 
                                         preserveAspectRatio="xMidYMid slice" 
                                         opacity="0.8" 
                                     />
-                                ) : (
-                                    <rect width="100%" height="100%" fill="url(#admin-grid)" />
                                 )}
 
                                 {/* Draw existing path connections */}
@@ -1127,12 +1104,12 @@ const AdminDashboard = () => {
                                     <div className="mt-4 p-3 bg-white rounded-lg border border-gray-200">
                                         <p className="text-xs font-bold text-gray-800 mb-1">Resulting Path ({testRouteResult.totalDistance.toFixed(1)}m):</p>
                                         <div className="max-h-[150px] overflow-y-auto space-y-1">
-                                            {testRouteResult.steps.map((step, idx) => (
+                                            {(testRouteResult.instructions || []).map((step, idx) => (
                                                 <div key={idx} className="text-[10px] text-gray-600 flex gap-2">
                                                     <span className="text-primary font-bold">{idx + 1}.</span> {step.instruction}
                                                 </div>
                                             ))}
-                                            {testRouteResult.steps.length === 0 && <span className="text-[10px] text-red-500">No valid path found.</span>}
+                                            {(!testRouteResult.instructions || testRouteResult.instructions.length === 0) && <span className="text-[10px] text-red-500">No valid path found.</span>}
                                         </div>
                                     </div>
                                 )}

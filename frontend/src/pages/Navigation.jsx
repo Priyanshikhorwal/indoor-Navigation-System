@@ -2,20 +2,30 @@ import React, { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import api from '../services/api';
 import Loader from '../components/Loader';
-import { Navigation2, MapPin, Compass, RotateCcw, Star, ArrowRight } from 'lucide-react';
+import { Navigation2, MapPin, Compass, RotateCcw, Star, ArrowRight, ZoomIn, ZoomOut, Maximize } from 'lucide-react';
+
 
 const Navigation = () => {
     const [searchParams] = useSearchParams();
     const [locations, setLocations] = useState([]);
+    const [floors, setFloors] = useState([]);
     const [source, setSource] = useState('');
     const [destination, setDestination] = useState('');
     const [path, setPath] = useState([]);
+    const [instructions, setInstructions] = useState([]);
+    const [totalDistance, setTotalDistance] = useState(0);
     const [loading, setLoading] = useState(false);
     const [fetchingLocs, setFetchingLocs] = useState(true);
     const [error, setError] = useState('');
-    const [selectedMapFloor, setSelectedMapFloor] = useState('All');
+    const [selectedMapFloorId, setSelectedMapFloorId] = useState('All');
     const [hoveredNode, setHoveredNode] = useState(null);
     const [isSaved, setIsSaved] = useState(false);
+
+    // Zoom & Pan states
+    const [zoom, setZoom] = useState(1);
+    const [pan, setPan] = useState({ x: 0, y: 0 });
+    const [isPanning, setIsPanning] = useState(false);
+    const [panStart, setPanStart] = useState({ x: 0, y: 0 });
 
     useEffect(() => {
         fetchLocations();
@@ -23,11 +33,15 @@ const Navigation = () => {
 
     const fetchLocations = async () => {
         try {
-            const response = await api.get('/locations');
-            setLocations(response.data);
+            const [locRes, floorRes] = await Promise.all([
+                api.get('/locations'),
+                api.get('/floors')
+            ]);
+            setLocations(locRes.data);
+            setFloors(floorRes.data);
             setFetchingLocs(false);
         } catch (err) {
-            setError('Failed to load locations.');
+            setError('Failed to load map data.');
             setFetchingLocs(false);
         }
     };
@@ -41,18 +55,24 @@ const Navigation = () => {
         setLoading(true);
         setError('');
         setPath([]);
+        setInstructions([]);
+        setTotalDistance(0);
         try {
             const response = await api.get(`/path/find?sourceId=${source}&destinationId=${destination}`);
-            if (response.data.length === 0) {
+            const data = response.data;
+            if (!data.path || data.path.length === 0) {
                 setError('No path found between selected locations.');
             } else {
-                setPath(response.data);
+                setPath(data.path);
+                setInstructions(data.instructions || []);
+                setTotalDistance(data.totalDistance || 0);
+                
                 // Automatically switch map floor to source floor for visual focus
-                const startLoc = response.data[0];
+                const startLoc = data.path[0];
                 if (startLoc && startLoc.floor) {
-                    setSelectedMapFloor(startLoc.floor);
+                    setSelectedMapFloorId(startLoc.floor.id);
                 } else {
-                    setSelectedMapFloor('All');
+                    setSelectedMapFloorId('All');
                 }
 
                 // Log search in user history
@@ -72,7 +92,9 @@ const Navigation = () => {
                             sourceName: sourceLoc.name,
                             destinationName: destLoc.name,
                             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' ' + new Date().toLocaleDateString(),
-                            floors: sourceLoc.floor === destLoc.floor ? `Floor ${sourceLoc.floor}` : `Floors ${sourceLoc.floor} → ${destLoc.floor}`
+                            floors: sourceLoc.floor?.id === destLoc.floor?.id 
+                                ? `${sourceLoc.floor?.floorName || 'Unknown Floor'}` 
+                                : `${sourceLoc.floor?.floorName || 'Floor A'} → ${destLoc.floor?.floorName || 'Floor B'}`
                         };
                         
                         const isDuplicate = historyArray.some(item => item.sourceId === source && item.destinationId === destination);
@@ -118,7 +140,9 @@ const Navigation = () => {
                     destinationId: destination,
                     sourceName: sourceLoc.name,
                     destinationName: destLoc.name,
-                    floorSummary: sourceLoc.floor === destLoc.floor ? `Floor ${sourceLoc.floor}` : `Floors ${sourceLoc.floor} → ${destLoc.floor}`
+                    floorSummary: sourceLoc.floor?.id === destLoc.floor?.id 
+                        ? `${sourceLoc.floor?.floorName || 'Unknown Floor'}` 
+                        : `${sourceLoc.floor?.floorName || 'Floor A'} → ${destLoc.floor?.floorName || 'Floor B'}`
                 };
                 favoritesArray.push(newFavorite);
                 localStorage.setItem(`favorites_${email}`, JSON.stringify(favoritesArray));
@@ -143,6 +167,8 @@ const Navigation = () => {
             setSource(locIdStr);
             setDestination('');
             setPath([]);
+            setInstructions([]);
+            setTotalDistance(0);
             setError('');
         } else {
             if (source === locIdStr) {
@@ -157,8 +183,12 @@ const Navigation = () => {
         setSource('');
         setDestination('');
         setPath([]);
+        setInstructions([]);
+        setTotalDistance(0);
         setError('');
-        setSelectedMapFloor('All');
+        setSelectedMapFloorId('All');
+        setZoom(1);
+        setPan({ x: 0, y: 0 });
     };
 
     // Calculate path automatically when source and destination are both set via map clicking
@@ -168,32 +198,51 @@ const Navigation = () => {
         }
     }, [source, destination]);
 
-    // Unique floors list for tabs
-    const mapFloors = ['All', ...new Set(locations.map(loc => loc.floor).filter(Boolean))];
+    // Zoom & Pan handlers
+    const handlePointerDown = (e) => {
+        if (e.target.tagName === 'svg' || e.target.tagName === 'rect' || e.target.tagName === 'image') {
+            setIsPanning(true);
+            setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+            e.currentTarget.setPointerCapture(e.pointerId);
+        }
+    };
 
-    // SVG coordinates mapping and normalization
-    const padding = 60;
+    const handlePointerMove = (e) => {
+        if (!isPanning) return;
+        setPan({
+            x: e.clientX - panStart.x,
+            y: e.clientY - panStart.y
+        });
+    };
+
+    const handlePointerUp = (e) => {
+        if (isPanning) {
+            setIsPanning(false);
+            e.currentTarget.releasePointerCapture(e.pointerId);
+        }
+    };
+
+    const handleWheel = (e) => {
+        if (e.cancelable) {
+            e.preventDefault();
+        }
+        const zoomFactor = 1.1;
+        const nextZoom = e.deltaY < 0 ? Math.min(zoom * zoomFactor, 5) : Math.max(zoom / zoomFactor, 0.5);
+        setZoom(nextZoom);
+    };
+
+    // Unique floors list for tabs
+    const uniqueFloors = [...floors].sort((a, b) => a.floorNumber - b.floorNumber);
+    const activeFloor = floors.find(f => f.id === selectedMapFloorId);
+    const bgMapImageUrl = (selectedMapFloorId !== 'All' && activeFloor?.mapImageUrl) ? `http://localhost:8081${activeFloor.mapImageUrl}` : null;
+
+    // SVG coordinates mapping and normalization - absolute coordinates system (identity scaling)
     const svgWidth = 800;
     const svgHeight = 550;
 
-    const validLocations = locations.filter(l => l.xCoordinate !== null && l.yCoordinate !== null);
-    const xCoords = validLocations.map(l => l.xCoordinate);
-    const yCoords = validLocations.map(l => l.yCoordinate);
+    const scaleX = (x) => x;
+    const scaleY = (y) => y;
 
-    const minX = xCoords.length > 0 ? Math.min(...xCoords) : 0;
-    const maxX = xCoords.length > 0 ? Math.max(...xCoords) : 100;
-    const minY = yCoords.length > 0 ? Math.min(...yCoords) : 0;
-    const maxY = yCoords.length > 0 ? Math.max(...yCoords) : 100;
-
-    const scaleX = (x) => {
-        const range = maxX - minX || 1;
-        return padding + ((x - minX) / range) * (svgWidth - 2 * padding);
-    };
-
-    const scaleY = (y) => {
-        const range = maxY - minY || 1;
-        return padding + ((y - minY) / range) * (svgHeight - 2 * padding);
-    };
 
     const isPathActive = path.length > 1;
 
@@ -262,7 +311,7 @@ const Navigation = () => {
                                                 <option value="">Select source...</option>
                                                 {locations.map(loc => (
                                                     <option key={loc.id} value={loc.id}>
-                                                        {loc.name} {loc.floor && `(Floor ${loc.floor})`}
+                                                        {loc.name} {loc.floor && `(${loc.floor.floorName})`}
                                                     </option>
                                                 ))}
                                             </select>
@@ -284,7 +333,7 @@ const Navigation = () => {
                                                 <option value="">Select destination...</option>
                                                 {locations.map(loc => (
                                                     <option key={loc.id} value={loc.id}>
-                                                        {loc.name} {loc.floor && `(Floor ${loc.floor})`}
+                                                        {loc.name} {loc.floor && `(${loc.floor.floorName})`}
                                                     </option>
                                                 ))}
                                             </select>
@@ -315,10 +364,17 @@ const Navigation = () => {
                         {/* Text Route Guidance Timeline */}
                         {isPathActive && (
                             <div className="bg-white rounded-2xl shadow-soft-lg p-6 border border-gray-100 animate-in fade-in slide-in-from-bottom-4 duration-300">
-                                <h2 className="text-lg font-bold text-primary mb-5 flex items-center gap-2">
-                                    <MapPin className="text-accent" />
-                                    Route Guidance
-                                </h2>
+                                <div className="flex items-center justify-between mb-5">
+                                    <h2 className="text-lg font-bold text-primary flex items-center gap-2">
+                                        <MapPin className="text-accent" />
+                                        Route Guidance
+                                    </h2>
+                                    {totalDistance > 0 && (
+                                        <span className="bg-accent/15 text-accent text-xs font-black px-2.5 py-1 rounded-full border border-accent/10">
+                                            Est: {totalDistance.toFixed(1)}m
+                                        </span>
+                                    )}
+                                </div>
 
                                 {/* Dynamic Pinned Favorites Action Widget */}
                                 {localStorage.getItem('token') && localStorage.getItem('role') === 'ROLE_USER' ? (
@@ -355,55 +411,118 @@ const Navigation = () => {
                                 ) : null}
                                 
                                 <div className="relative border-l-2 border-primary/20 ml-3.5">
-                                    {path.map((loc, index) => {
-                                        const showTransition = index > 0 && loc.floor !== path[index - 1].floor;
-                                        return (
-                                            <React.Fragment key={index}>
-                                                {showTransition && (
-                                                    <div className="mb-6 ml-6 relative">
-                                                        <div className="absolute -left-[32px] w-4.5 h-4.5 rounded-full border-2 border-white bg-gradient-to-r from-accent to-accent-light flex items-center justify-center shadow-soft">
-                                                            <div className="w-1.5 h-1.5 rounded-full bg-white"></div>
-                                                        </div>
-                                                        <div className="bg-gradient-to-r from-accent to-accent-light/5 border border-accent/15 rounded-xl p-3 flex items-center gap-3 animate-in fade-in slide-in-from-left-4 duration-200">
-                                                            <div className="p-1.5 bg-gradient-to-r from-accent to-accent-light/10 text-accent rounded-lg">
-                                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 7l4-4m0 0l4 4m-4-4v18" />
-                                                                </svg>
-                                                            </div>
-                                                            <div>
-                                                                <h4 className="text-[10px] font-bold text-accent uppercase tracking-wider">Floor Transition</h4>
-                                                                <p className="text-xs text-gray-700 mt-0.5 font-medium">
-                                                                    Take Stairs / Elevator up to <strong className="text-accent font-black">Floor {loc.floor}</strong>
-                                                                </p>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                )}
-                                                <div className="mb-6 ml-6 relative">
-                                                    {/* Glowing indicator circles */}
+                                    {instructions && instructions.length > 0 ? (
+                                        instructions.map((step, index) => {
+                                            let icon = <Compass className="w-4 h-4 text-primary" />;
+                                            let badgeColor = 'bg-primary/10 text-primary';
+                                            
+                                            if (step.action === 'ARRIVE') {
+                                                icon = <MapPin className="w-4 h-4 text-accent fill-accent" />;
+                                                badgeColor = 'bg-accent/10 text-accent';
+                                            } else if (step.action === 'TAKE_STAIRS' || step.action === 'TAKE_ELEVATOR') {
+                                                icon = (
+                                                    <svg className="w-4 h-4 text-primary" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M8 7l4-4m0 0l4 4m-4-4v18" />
+                                                    </svg>
+                                                );
+                                                badgeColor = 'bg-indigo-100 text-indigo-800';
+                                            } else if (step.action === 'TURN_LEFT') {
+                                                icon = (
+                                                    <svg className="w-4 h-4 text-primary" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                                                    </svg>
+                                                );
+                                            } else if (step.action === 'TURN_RIGHT') {
+                                                icon = (
+                                                    <svg className="w-4 h-4 text-primary" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                                                    </svg>
+                                                );
+                                            }
+                                            
+                                            return (
+                                                <div key={index} className="mb-6 ml-6 relative">
+                                                    {/* Indicator Circle */}
                                                     <div 
                                                         className={`absolute -left-[32px] w-4.5 h-4.5 rounded-full border-2 border-white flex items-center justify-center ${
                                                             index === 0 
                                                                 ? 'bg-green-500 shadow-soft shadow-green-200' 
-                                                                : index === path.length - 1 
+                                                                : step.action === 'ARRIVE' 
                                                                     ? 'bg-gradient-to-r from-accent to-accent-light shadow-soft shadow-red-200' 
                                                                     : 'bg-gradient-to-r from-primary to-primary-light'
                                                         }`}
                                                     >
-                                                        {/* Minor inner dot for visually premium look */}
                                                         <div className="w-1.5 h-1.5 rounded-full bg-white"></div>
                                                     </div>
-                                                    <h3 className="text-sm font-bold text-gray-800 leading-none">{loc.name}</h3>
-                                                    {loc.description && <p className="text-gray-500 text-xs mt-1">{loc.description}</p>}
-                                                    {loc.floor && (
-                                                        <span className="inline-block mt-1 text-[10px] font-bold bg-gradient-to-br from-secondary to-secondary-dark text-primary px-1.5 py-0.5 rounded uppercase">
-                                                            Floor {loc.floor}
-                                                        </span>
-                                                    )}
+                                                    
+                                                    <div className="flex items-start gap-2.5">
+                                                        <div className="mt-0.5 shrink-0">{icon}</div>
+                                                        <div>
+                                                            <h3 className="text-sm font-bold text-gray-800 leading-tight">{step.instruction}</h3>
+                                                            {step.distance > 0 && (
+                                                                <p className="text-xs text-gray-500 mt-1 font-semibold">
+                                                                    Distance: <strong className="text-primary font-bold">{step.distance.toFixed(1)}m</strong>
+                                                                </p>
+                                                            )}
+                                                            {step.floor && (
+                                                                <span className={`inline-block mt-1 text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider ${badgeColor}`}>
+                                                                    {step.floor}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                            </React.Fragment>
-                                        );
-                                    })}
+                                            );
+                                        })
+                                    ) : (
+                                        path.map((loc, index) => {
+                                            const showTransition = index > 0 && loc.floor?.id !== path[index - 1].floor?.id;
+                                            return (
+                                                <React.Fragment key={index}>
+                                                    {showTransition && (
+                                                        <div className="mb-6 ml-6 relative">
+                                                            <div className="absolute -left-[32px] w-4.5 h-4.5 rounded-full border-2 border-white bg-gradient-to-r from-accent to-accent-light flex items-center justify-center shadow-soft">
+                                                                <div className="w-1.5 h-1.5 rounded-full bg-white"></div>
+                                                            </div>
+                                                            <div className="bg-gradient-to-r from-accent to-accent-light/5 border border-accent/15 rounded-xl p-3 flex items-center gap-3 animate-in fade-in slide-in-from-left-4 duration-200">
+                                                                <div className="p-1.5 bg-gradient-to-r from-accent to-accent-light/10 text-accent rounded-lg">
+                                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M8 7l4-4m0 0l4 4m-4-4v18" />
+                                                                    </svg>
+                                                                </div>
+                                                                <div>
+                                                                    <h4 className="text-[10px] font-bold text-accent uppercase tracking-wider">Floor Transition</h4>
+                                                                    <p className="text-xs text-gray-700 mt-0.5 font-medium">
+                                                                        Take Stairs / Elevator up to <strong className="text-accent font-black">{loc.floor?.floorName || `Floor ${loc.floor}`}</strong>
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                    <div className="mb-6 ml-6 relative">
+                                                        <div 
+                                                            className={`absolute -left-[32px] w-4.5 h-4.5 rounded-full border-2 border-white flex items-center justify-center ${
+                                                                index === 0 
+                                                                    ? 'bg-green-500 shadow-soft shadow-green-200' 
+                                                                    : index === path.length - 1 
+                                                                        ? 'bg-gradient-to-r from-accent to-accent-light shadow-soft shadow-red-200' 
+                                                                        : 'bg-gradient-to-r from-primary to-primary-light'
+                                                            }`}
+                                                        >
+                                                            <div className="w-1.5 h-1.5 rounded-full bg-white"></div>
+                                                        </div>
+                                                        <h3 className="text-sm font-bold text-gray-800 leading-none">{loc.name}</h3>
+                                                        {loc.description && <p className="text-gray-500 text-xs mt-1">{loc.description}</p>}
+                                                        {loc.floor && (
+                                                            <span className="inline-block mt-1 text-[10px] font-bold bg-gradient-to-br from-secondary to-secondary-dark text-primary px-1.5 py-0.5 rounded uppercase">
+                                                                {loc.floor.floorName || `Floor ${loc.floor}`}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </React.Fragment>
+                                            );
+                                        })
+                                    )}
                                 </div>
                             </div>
                         )}
@@ -418,23 +537,26 @@ const Navigation = () => {
                                 <h2 className="text-xl font-bold text-primary">Interactive Floor Map</h2>
                                 <p className="text-xs text-gray-500 mt-0.5">Visual representation of nodes and computed routes</p>
                             </div>
-                            
-                            {/* Dynamic Floor Selector Tabs */}
+                                                      {/* Dynamic Floor Selector Tabs */}
                             <div className="flex flex-wrap gap-1.5 bg-gradient-to-br from-secondary to-secondary-dark p-1 rounded-xl">
-                                {mapFloors.map(floor => (
-                                    <button
-                                        type="button"
-                                        key={floor}
-                                        onClick={() => setSelectedMapFloor(floor)}
-                                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                                            selectedMapFloor === floor
-                                                ? 'bg-gradient-to-r from-primary to-primary-light text-white shadow-soft'
-                                                : 'text-primary/70 hover:text-primary hover:bg-white/50'
-                                        }`}
-                                    >
-                                        {floor === 'All' ? 'All Floors' : `Floor ${floor}`}
-                                    </button>
-                                ))}
+                                {['All', ...uniqueFloors].map(floor => {
+                                    const floorId = floor === 'All' ? 'All' : floor.id;
+                                    const floorLabel = floor === 'All' ? 'All Floors' : floor.floorName;
+                                    return (
+                                        <button
+                                            type="button"
+                                            key={floorId}
+                                            onClick={() => setSelectedMapFloorId(floorId)}
+                                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                                selectedMapFloorId === floorId
+                                                    ? 'bg-gradient-to-r from-primary to-primary-light text-white shadow-soft'
+                                                    : 'text-primary/70 hover:text-primary hover:bg-white/50'
+                                            }`}
+                                        >
+                                            {floorLabel}
+                                        </button>
+                                    );
+                                })}
                             </div>
                         </div>
 
@@ -446,13 +568,13 @@ const Navigation = () => {
                                 <div 
                                     className="absolute bg-white/95 backdrop-blur p-3 rounded-xl shadow-soft-lg border border-gray-100 z-30 pointer-events-none transition-all duration-100"
                                     style={{
-                                        left: `${(scaleX(hoveredNode.xCoordinate) / svgWidth) * 100}%`,
-                                        top: `${(scaleY(hoveredNode.yCoordinate) / svgHeight) * 100 - 15}%`,
+                                        left: `${((hoveredNode.xCoordinate * zoom + pan.x) / svgWidth) * 100}%`,
+                                        top: `${((hoveredNode.yCoordinate * zoom + pan.y) / svgHeight) * 100 - 15}%`,
                                         transform: 'translate(-50%, -100%)'
                                     }}
                                 >
                                     <div className="text-xs font-bold text-primary">{hoveredNode.name}</div>
-                                    {hoveredNode.floor && <div className="text-[10px] text-gray-400 font-bold uppercase mt-0.5">Floor {hoveredNode.floor}</div>}
+                                    {hoveredNode.floor && <div className="text-[10px] text-gray-400 font-bold uppercase mt-0.5">{hoveredNode.floor.floorName}</div>}
                                     {hoveredNode.description && <div className="text-[10px] text-gray-500 mt-1 max-w-[160px] line-clamp-2">{hoveredNode.description}</div>}
                                     <div className="text-[9px] text-accent font-bold mt-1.5 italic">Click to select</div>
                                 </div>
@@ -462,6 +584,10 @@ const Navigation = () => {
                             <svg 
                                 viewBox={`0 0 ${svgWidth} ${svgHeight}`} 
                                 className="w-full h-full"
+                                onPointerDown={handlePointerDown}
+                                onPointerMove={handlePointerMove}
+                                onPointerUp={handlePointerUp}
+                                onWheel={handleWheel}
                             >
                                 {/* Pattern grid definition for blueprint map layout */}
                                 <defs>
@@ -469,150 +595,190 @@ const Navigation = () => {
                                         <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#E2EAE7" strokeWidth="1"/>
                                     </pattern>
                                 </defs>
-                                <rect width="100%" height="100%" fill="url(#blueprint-grid)" />
+                                
+                                <g transform={`translate(${pan.x}, ${pan.y}) scale(${zoom})`}>
+                                    <rect width="100%" height="100%" fill="url(#blueprint-grid)" />
+                                    {bgMapImageUrl && (
+                                        <image
+                                            href={bgMapImageUrl}
+                                            width="100%"
+                                            height="100%"
+                                            preserveAspectRatio="xMidYMid slice"
+                                            opacity="0.85"
+                                        />
+                                    )}
 
-                                {/* Draw All Calculated Path Connections (Underlay lines) */}
-                                {isPathActive && path.map((loc, idx) => {
-                                    if (idx === path.length - 1) return null;
-                                    const nextLoc = path[idx + 1];
-                                    const isOnActiveFloor = selectedMapFloor === 'All' || 
-                                                           (loc.floor === selectedMapFloor && nextLoc.floor === selectedMapFloor);
-                                    
-                                    return (
-                                        <g key={`path-segment-${idx}`}>
-                                            {/* Glowing Under-layer Path shadow */}
-                                            <line 
-                                                x1={scaleX(loc.xCoordinate)}
-                                                y1={scaleY(loc.yCoordinate)}
-                                                x2={scaleX(nextLoc.xCoordinate)}
-                                                y2={scaleY(nextLoc.yCoordinate)}
-                                                stroke="#FB3640"
-                                                strokeWidth="8"
-                                                strokeLinecap="round"
-                                                opacity={isOnActiveFloor ? 0.25 : 0.05}
-                                            />
-                                            {/* Glowing flow animated pathway line */}
-                                            <line 
-                                                x1={scaleX(loc.xCoordinate)}
-                                                y1={scaleY(loc.yCoordinate)}
-                                                x2={scaleX(nextLoc.xCoordinate)}
-                                                y2={scaleY(nextLoc.yCoordinate)}
-                                                stroke="#FB3640"
-                                                strokeWidth="3.5"
-                                                strokeLinecap="round"
-                                                className="route-line-animated"
-                                                opacity={isOnActiveFloor ? 1 : 0.1}
-                                            />
-                                        </g>
-                                    );
-                                })}
+                                    {/* Draw All Calculated Path Connections (Underlay lines) */}
+                                    {isPathActive && path.map((loc, idx) => {
+                                        if (idx === path.length - 1) return null;
+                                        const nextLoc = path[idx + 1];
+                                        const isOnActiveFloor = selectedMapFloorId === 'All' || 
+                                                               (loc.floor?.id === selectedMapFloorId && nextLoc.floor?.id === selectedMapFloorId);
+                                        
+                                        return (
+                                            <g key={`path-segment-${idx}`}>
+                                                {/* Glowing Under-layer Path shadow */}
+                                                <line 
+                                                    x1={scaleX(loc.xCoordinate)}
+                                                    y1={scaleY(loc.yCoordinate)}
+                                                    x2={scaleX(nextLoc.xCoordinate)}
+                                                    y2={scaleY(nextLoc.yCoordinate)}
+                                                    stroke="#FB3640"
+                                                    strokeWidth="8"
+                                                    strokeLinecap="round"
+                                                    opacity={isOnActiveFloor ? 0.25 : 0.05}
+                                                />
+                                                {/* Glowing flow animated pathway line */}
+                                                <line 
+                                                    x1={scaleX(loc.xCoordinate)}
+                                                    y1={scaleY(loc.yCoordinate)}
+                                                    x2={scaleX(nextLoc.xCoordinate)}
+                                                    y2={scaleY(nextLoc.yCoordinate)}
+                                                    stroke="#FB3640"
+                                                    strokeWidth="3.5"
+                                                    strokeLinecap="round"
+                                                    className="route-line-animated"
+                                                    opacity={isOnActiveFloor ? 1 : 0.1}
+                                                />
+                                            </g>
+                                        );
+                                    })}
 
-                                {/* Draw Node Circles */}
-                                {locations.map(loc => {
-                                    if (loc.xCoordinate === null || loc.yCoordinate === null) return null;
+                                    {/* Draw Node Circles */}
+                                    {locations.map(loc => {
+                                        if (loc.xCoordinate === null || loc.yCoordinate === null) return null;
 
-                                    const cx = scaleX(loc.xCoordinate);
-                                    const cy = scaleY(loc.yCoordinate);
-                                    const isSource = source === loc.id.toString();
-                                    const isDest = destination === loc.id.toString();
-                                    const isInPath = path.some(p => p.id === loc.id);
-                                    
-                                    const isFloorVisible = selectedMapFloor === 'All' || loc.floor === selectedMapFloor;
-                                    
-                                    // Visual color configuration
-                                    let strokeColor = '#94A3B8';
-                                    let fillCol = '#FFFFFF';
-                                    let radius = 7;
+                                        const cx = scaleX(loc.xCoordinate);
+                                        const cy = scaleY(loc.yCoordinate);
+                                        const isSource = source === loc.id.toString();
+                                        const isDest = destination === loc.id.toString();
+                                        const isInPath = path.some(p => p.id === loc.id);
+                                        
+                                        const isFloorVisible = selectedMapFloorId === 'All' || loc.floor?.id === selectedMapFloorId;
+                                        
+                                        // Visual color configuration
+                                        let strokeColor = '#94A3B8';
+                                        let fillCol = '#FFFFFF';
+                                        let radius = 7;
 
-                                    if (isSource) {
-                                        fillCol = '#22C55E';
-                                        strokeColor = '#86EFAC';
-                                        radius = 9.5;
-                                    } else if (isDest) {
-                                        fillCol = '#FB3640';
-                                        strokeColor = '#FECACA';
-                                        radius = 9.5;
-                                    } else if (isInPath) {
-                                        fillCol = '#0A2463';
-                                        strokeColor = '#93C5FD';
-                                        radius = 8;
-                                    }
+                                        if (isSource) {
+                                            fillCol = '#22C55E';
+                                            strokeColor = '#86EFAC';
+                                            radius = 9.5;
+                                        } else if (isDest) {
+                                            fillCol = '#FB3640';
+                                            strokeColor = '#FECACA';
+                                            radius = 9.5;
+                                        } else if (isInPath) {
+                                            fillCol = '#0A2463';
+                                            strokeColor = '#93C5FD';
+                                            radius = 8;
+                                        }
 
-                                    return (
-                                        <g 
-                                            key={loc.id}
-                                            onClick={() => isFloorVisible && handleNodeClick(loc)}
-                                            onMouseEnter={() => isFloorVisible && setHoveredNode(loc)}
-                                            onMouseLeave={() => setHoveredNode(null)}
-                                            className={`cursor-pointer transition-all duration-200 ${
-                                                isFloorVisible ? 'opacity-100' : 'opacity-15'
-                                            }`}
-                                        >
-                                            {/* Glowing pulse ring around start and end locations */}
-                                            {(isSource || isDest) && isFloorVisible && (
+                                        return (
+                                            <g 
+                                                key={loc.id}
+                                                onClick={() => isFloorVisible && handleNodeClick(loc)}
+                                                onMouseEnter={() => isFloorVisible && setHoveredNode(loc)}
+                                                onMouseLeave={() => setHoveredNode(null)}
+                                                className={`cursor-pointer transition-all duration-200 ${
+                                                    isFloorVisible ? 'opacity-100' : 'opacity-15'
+                                                }`}
+                                            >
+                                                {/* Glowing pulse ring around start and end locations */}
+                                                {(isSource || isDest) && isFloorVisible && (
+                                                    <circle 
+                                                        cx={cx} 
+                                                        cy={cy} 
+                                                        r={radius + 6} 
+                                                        fill="none" 
+                                                        stroke={isSource ? '#22C55E' : '#FB3640'} 
+                                                        strokeWidth="1.5"
+                                                        className="marker-pulse"
+                                                    />
+                                                )}
+
+                                                {/* Outer clickable focus ring anchor */}
                                                 <circle 
                                                     cx={cx} 
                                                     cy={cy} 
-                                                    r={radius + 6} 
-                                                    fill="none" 
-                                                    stroke={isSource ? '#22C55E' : '#FB3640'} 
-                                                    strokeWidth="1.5"
-                                                    className="marker-pulse"
+                                                    r={radius + 3.5} 
+                                                    fill="transparent" 
+                                                    className="hover:fill-primary/5 transition-colors"
                                                 />
-                                            )}
 
-                                            {/* Outer clickable focus ring anchor */}
-                                            <circle 
-                                                cx={cx} 
-                                                cy={cy} 
-                                                r={radius + 3.5} 
-                                                fill="transparent" 
-                                                className="hover:fill-primary/5 transition-colors"
-                                            />
+                                                {/* Standard Room Node */}
+                                                <circle 
+                                                    cx={cx} 
+                                                    cy={cy} 
+                                                    r={radius} 
+                                                    fill={fillCol}
+                                                    stroke={strokeColor}
+                                                    strokeWidth="2.5"
+                                                    className="transition-all"
+                                                />
 
-                                            {/* Standard Room Node */}
-                                            <circle 
-                                                cx={cx} 
-                                                cy={cy} 
-                                                r={radius} 
-                                                fill={fillCol}
-                                                stroke={strokeColor}
-                                                strokeWidth="2.5"
-                                                className="transition-all"
-                                            />
+                                                {/* Room name abbreviation/initial label inside node */}
+                                                {isFloorVisible && !isSource && !isDest && !isInPath && (
+                                                    <text 
+                                                        x={cx} 
+                                                        y={cy - 12} 
+                                                        textAnchor="middle" 
+                                                        className="text-[10px] font-bold fill-primary/70 pointer-events-none select-none"
+                                                    >
+                                                        {loc.name.length > 10 ? `${loc.name.substring(0, 8)}..` : loc.name}
+                                                    </text>
+                                                )}
 
-                                            {/* Room name abbreviation/initial label inside node */}
-                                            {isFloorVisible && !isSource && !isDest && !isInPath && (
-                                                <text 
-                                                    x={cx} 
-                                                    y={cy - 12} 
-                                                    textAnchor="middle" 
-                                                    className="text-[10px] font-bold fill-primary/70 pointer-events-none select-none"
-                                                >
-                                                    {loc.name.length > 10 ? `${loc.name.substring(0, 8)}..` : loc.name}
-                                                </text>
-                                            )}
-
-                                            {/* Highlight labels for key path milestones */}
-                                            {isFloorVisible && (isSource || isDest) && (
-                                                <text 
-                                                    x={cx} 
-                                                    y={cy - 16} 
-                                                    textAnchor="middle" 
-                                                    className="text-[11px] font-black fill-primary pointer-events-none select-none bg-white px-1"
-                                                >
-                                                    {isSource ? 'START 📍' : 'END 🏁'}
-                                                </text>
-                                            )}
-                                        </g>
-                                    );
-                                })}
+                                                {/* Highlight labels for key path milestones */}
+                                                {isFloorVisible && (isSource || isDest) && (
+                                                    <text 
+                                                        x={cx} 
+                                                        y={cy - 16} 
+                                                        textAnchor="middle" 
+                                                        className="text-[11px] font-black fill-primary pointer-events-none select-none bg-white px-1"
+                                                    >
+                                                        {isSource ? 'START 📍' : 'END 🏁'}
+                                                    </text>
+                                                )}
+                                            </g>
+                                        );
+                                    })}
+                                </g>
                             </svg>
+
+                            {/* Floating zoom/pan controls */}
+                            <div className="absolute bottom-4 right-4 flex gap-2 z-20">
+                                <button
+                                    type="button"
+                                    onClick={() => setZoom(prev => Math.min(prev * 1.2, 5))}
+                                    className="p-2 bg-white/90 hover:bg-white text-primary rounded-xl shadow-soft border border-gray-150 transition-colors"
+                                    title="Zoom In"
+                                >
+                                    <ZoomIn className="w-4 h-4" />
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setZoom(prev => Math.max(prev / 1.2, 0.5))}
+                                    className="p-2 bg-white/90 hover:bg-white text-primary rounded-xl shadow-soft border border-gray-150 transition-colors"
+                                    title="Zoom Out"
+                                >
+                                    <ZoomOut className="w-4 h-4" />
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }}
+                                    className="p-2 bg-white/90 hover:bg-white text-primary rounded-xl shadow-soft border border-gray-150 transition-colors"
+                                    title="Reset View"
+                                >
+                                    <Maximize className="w-4 h-4" />
+                                </button>
+                            </div>
 
                             {/* Dynamic Floor Label display overlay */}
                             <div className="absolute top-4 left-4 bg-gradient-to-r from-primary to-primary-light/95 text-white backdrop-blur text-xs font-bold px-3 py-1.5 rounded-xl shadow-soft flex items-center gap-1.5 select-none pointer-events-none">
                                 <Compass className="w-3.5 h-3.5" />
-                                <span>Active Floor: {selectedMapFloor === 'All' ? 'Full Layout' : `Floor ${selectedMapFloor}`}</span>
+                                <span>Active Floor: {selectedMapFloorId === 'All' ? 'Full Layout' : (floors.find(f => f.id === selectedMapFloorId)?.floorName || `Floor ${selectedMapFloorId}`)}</span>
                             </div>
                         </div>
 

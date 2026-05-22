@@ -54,11 +54,11 @@ public class NavigationServiceTest {
     public void testFindShortestPath_Success() {
         // Define path connections
         // Connection 1: Room A to Room B (distance = 10, accessible = true)
-        PathConnection conn1 = new PathConnection(1L, loc1, loc2, 10.0, true);
+        PathConnection conn1 = new PathConnection(1L, loc1, loc2, 10.0, true, true, "BOTH");
         // Connection 2: Room B to Room C (distance = 15, accessible = true)
-        PathConnection conn2 = new PathConnection(2L, loc2, loc3, 15.0, true);
+        PathConnection conn2 = new PathConnection(2L, loc2, loc3, 15.0, true, true, "BOTH");
         // Connection 3: Room C to Room D (distance = 10, accessible = true)
-        PathConnection conn3 = new PathConnection(3L, loc3, loc4, 10.0, true);
+        PathConnection conn3 = new PathConnection(3L, loc3, loc4, 10.0, true, true, "BOTH");
 
         when(locationRepository.findById(1L)).thenReturn(Optional.of(loc1));
         when(locationRepository.findById(4L)).thenReturn(Optional.of(loc4));
@@ -77,11 +77,11 @@ public class NavigationServiceTest {
     @Test
     public void testFindShortestPath_WheelchairAccessSkipsInaccessible() {
         // Connection 1: Room A to Room B (distance = 10, accessible = true)
-        PathConnection conn1 = new PathConnection(1L, loc1, loc2, 10.0, true);
+        PathConnection conn1 = new PathConnection(1L, loc1, loc2, 10.0, true, true, "BOTH");
         // Connection 2: Room B to Room C (distance = 15, accessible = false - no ramp/elevator)
-        PathConnection conn2 = new PathConnection(2L, loc2, loc3, 15.0, false);
+        PathConnection conn2 = new PathConnection(2L, loc2, loc3, 15.0, false, true, "BOTH");
         // Connection 3: Room C to Room D (distance = 10, accessible = true)
-        PathConnection conn3 = new PathConnection(3L, loc3, loc4, 10.0, true);
+        PathConnection conn3 = new PathConnection(3L, loc3, loc4, 10.0, true, true, "BOTH");
 
         when(locationRepository.findById(1L)).thenReturn(Optional.of(loc1));
         when(locationRepository.findById(4L)).thenReturn(Optional.of(loc4));
