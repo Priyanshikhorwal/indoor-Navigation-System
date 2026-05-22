@@ -40,6 +40,17 @@ public class Location {
     @Column(nullable = false)
     private String type = "ROOM";
 
+    private Integer width;
+    private Integer height;
+    private String accessibilityType;
+    private String roomCategory;
+    private Integer roomCapacity;
+    
+    @Column(nullable = false)
+    private Boolean isRestricted = false;
+    
+    private String landmarkDescription;
+
     public Location(Long id, String name, String description, Integer xCoordinate, Integer yCoordinate, Floor floor) {
         this.id = id;
         this.name = name;

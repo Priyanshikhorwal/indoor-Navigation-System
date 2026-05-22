@@ -35,4 +35,11 @@ public class PathConnection {
 
     @Column(name = "direction_type")
     private String directionType; // e.g., "BOTH", "ONE_WAY"
+
+    private String traversalType;
+
+    @Column(nullable = false)
+    private Boolean accessibilitySupported = true;
+
+    private Integer estimatedWalkTime; // in seconds
 }

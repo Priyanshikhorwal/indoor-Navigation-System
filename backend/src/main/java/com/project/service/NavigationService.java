@@ -11,6 +11,11 @@ import org.springframework.cache.annotation.Cacheable;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import com.project.entity.RouteCache;
+import com.project.repository.RouteCacheRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.JsonProcessingException;
+
 import java.util.*;
 
 @Service
@@ -19,6 +24,8 @@ public class NavigationService {
 
     private final LocationRepository locationRepository;
     private final PathConnectionRepository pathConnectionRepository;
+    private final RouteCacheRepository routeCacheRepository;
+    private final ObjectMapper objectMapper;
 
     @Cacheable("graph")
     public Map<Location, List<Edge>> getGraphAdjacencyList() {
@@ -103,6 +110,16 @@ public class NavigationService {
     }
 
     public NavigationResponseDto getNavigationRoute(Long sourceId, Long destinationId, boolean wheelchairAccessible) {
+        // Attempt to fetch from DB Cache first
+        Optional<RouteCache> cached = routeCacheRepository.findBySourceIdAndDestinationId(sourceId, destinationId);
+        if (cached.isPresent() && cached.get().getCachedRoute() != null && !wheelchairAccessible) { // Only cache non-wheelchair for simplicity or create separate cache keys
+            try {
+                return objectMapper.readValue(cached.get().getCachedRoute(), NavigationResponseDto.class);
+            } catch (JsonProcessingException e) {
+                // Ignore and recalculate if parse fails
+            }
+        }
+
         List<Location> path = findShortestPathAStar(sourceId, destinationId, wheelchairAccessible);
         if (path.isEmpty()) {
             return new NavigationResponseDto(Collections.emptyList(), Collections.emptyList(), 0.0);
@@ -195,7 +212,34 @@ public class NavigationService {
             destFloorName
         ));
 
-        return new NavigationResponseDto(path, steps, totalDist);
+        NavigationResponseDto responseDto = new NavigationResponseDto(path, steps, totalDist);
+        
+        // Save to DB Cache
+        if (!wheelchairAccessible) {
+            try {
+                RouteCache cacheEntry = cached.orElseGet(RouteCache::new);
+                cacheEntry.setSourceId(sourceId);
+                cacheEntry.setDestinationId(destinationId);
+                cacheEntry.setTotalDistance(totalDist);
+                cacheEntry.setEstimatedTime((int) (totalDist / 1.4)); // approx 1.4 m/s walk speed
+                
+                // Count floor transitions
+                int floorTransitions = 0;
+                for (NavigationStepDto step : steps) {
+                    if ("TAKE_ELEVATOR".equals(step.getAction()) || "TAKE_STAIRS".equals(step.getAction())) {
+                        floorTransitions++;
+                    }
+                }
+                cacheEntry.setFloorTransitionCount(floorTransitions);
+                
+                cacheEntry.setCachedRoute(objectMapper.writeValueAsString(responseDto));
+                routeCacheRepository.save(cacheEntry);
+            } catch (JsonProcessingException e) {
+                // Ignore cache save failure
+            }
+        }
+        
+        return responseDto;
     }
 
     private List<Location> reconstructPath(Map<Location, Location> cameFrom, Location current) {

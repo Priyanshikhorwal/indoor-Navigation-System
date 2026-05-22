@@ -83,15 +83,12 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- ===== CAD / DXF Parsing ===== -->
-        <!-- ✅ kabeja-core from correct Maven Central coordinates -->
-        <!--
+                <!-- ===== CAD / DXF Parsing ===== -->
         <dependency>
             <groupId>net.sf.kabeja</groupId>
             <artifactId>kabeja</artifactId>
             <version>0.4</version>
         </dependency>
-        -->
 
         <!-- ===== SVG / Image Processing ===== -->
         <!-- Apache Batik for SVG rendering and transcoding -->
@@ -132,6 +129,11 @@
         </dependency>
 
         <!-- ===== Utilities ===== -->
+        <dependency>
+            <groupId>com.github.ben-manes.caffeine</groupId>
+            <artifactId>caffeine</artifactId>
+            <version>3.1.8</version>
+        </dependency>
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
