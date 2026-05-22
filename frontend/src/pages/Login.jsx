@@ -100,14 +100,14 @@ const Login = ({ mode = 'login' }) => {
     };
 
     return (
-        <div className="min-h-[85vh] flex items-center justify-center bg-secondary px-4 py-12 relative overflow-hidden">
+        <div className="min-h-[85vh] flex items-center justify-center bg-gradient-to-br from-secondary to-secondary-dark dark:from-darkBg dark:to-darkBg px-4 py-12 relative overflow-hidden">
             {/* Elegant glassmorphism backdrop circles */}
-            <div className="absolute top-10 left-10 w-72 h-72 rounded-full bg-primary/10 blur-3xl pointer-events-none"></div>
-            <div className="absolute bottom-10 right-10 w-80 h-80 rounded-full bg-accent/10 blur-3xl pointer-events-none"></div>
+            <div className="absolute top-10 left-10 w-72 h-72 rounded-full bg-gradient-to-r from-primary to-primary-light/10 blur-3xl pointer-events-none"></div>
+            <div className="absolute bottom-10 right-10 w-80 h-80 rounded-full bg-gradient-to-r from-accent to-accent-light/10 blur-3xl pointer-events-none"></div>
 
-            <div className="bg-white rounded-3xl shadow-xl w-full max-w-lg border border-gray-100 overflow-hidden relative z-10 animate-in fade-in zoom-in-95 duration-300">
+            <div className="bg-white dark:bg-darkCard rounded-3xl shadow-soft-lg dark:shadow-none w-full max-w-lg border border-gray-100 dark:border-darkHover overflow-hidden relative z-10 animate-in fade-in zoom-in-95 duration-300">
                 {/* Header Graphic */}
-                <div className="bg-primary text-white p-8 text-center relative">
+                <div className="bg-gradient-to-r from-primary to-primary-light dark:from-darkCard dark:to-darkBg text-white p-8 text-center relative dark:border-b dark:border-darkHover">
                     <div className="absolute top-0 left-0 w-full h-full opacity-10 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-white via-transparent to-transparent"></div>
                     <div className="mx-auto bg-white/10 w-16 h-16 rounded-2xl flex items-center justify-center mb-4 backdrop-blur shadow-inner">
                         {activeTab === 'register' ? (
@@ -125,13 +125,13 @@ const Login = ({ mode = 'login' }) => {
                 </div>
 
                 {/* Tab Switcher */}
-                <div className="flex border-b border-gray-100 bg-gray-50/50 p-2">
+                <div className="flex border-b border-gray-100 dark:border-darkHover bg-gray-50/50 dark:bg-darkBg p-2">
                     <button
                         onClick={() => handleTabChange('user')}
                         className={`flex-1 py-3 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 ${
                             activeTab === 'user'
-                                ? 'bg-white text-primary shadow-sm'
-                                : 'text-gray-500 hover:text-primary'
+                                ? 'bg-white dark:bg-darkCard text-primary dark:text-white shadow-soft dark:shadow-none'
+                                : 'text-gray-500 dark:text-gray-400 hover:text-primary dark:hover:text-white'
                         }`}
                     >
                         <User className="w-3.5 h-3.5" />
@@ -141,8 +141,8 @@ const Login = ({ mode = 'login' }) => {
                         onClick={() => handleTabChange('register')}
                         className={`flex-1 py-3 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 ${
                             activeTab === 'register'
-                                ? 'bg-white text-primary shadow-sm'
-                                : 'text-gray-500 hover:text-primary'
+                                ? 'bg-white dark:bg-darkCard text-primary dark:text-white shadow-soft dark:shadow-none'
+                                : 'text-gray-500 dark:text-gray-400 hover:text-primary dark:hover:text-white'
                         }`}
                     >
                         <UserPlus className="w-3.5 h-3.5" />
@@ -154,7 +154,7 @@ const Login = ({ mode = 'login' }) => {
                     {/* Alerts */}
                     {error && (
                         <div className="bg-red-50 text-accent p-4 rounded-2xl mb-6 text-xs font-semibold border border-red-100 flex items-center gap-2 animate-in fade-in slide-in-from-top-1 duration-200">
-                            <span className="w-1.5 h-1.5 rounded-full bg-accent animate-ping shrink-0"></span>
+                            <span className="w-1.5 h-1.5 rounded-full bg-gradient-to-r from-accent to-accent-light animate-ping shrink-0"></span>
                             <span>{error}</span>
                         </div>
                     )}
@@ -168,7 +168,7 @@ const Login = ({ mode = 'login' }) => {
                     {/* Standard Credentials Fields */}
                     <form onSubmit={handleSubmit} className="space-y-5">
                         <div>
-                            <label className="block text-xs font-bold text-primary/80 uppercase tracking-wider mb-2">
+                            <label className="block text-xs font-bold text-primary/80 dark:text-gray-300 uppercase tracking-wider mb-2">
                                 Email Address
                             </label>
                             <input
@@ -176,13 +176,13 @@ const Login = ({ mode = 'login' }) => {
                                 required
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
-                                className="w-full p-3.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all text-sm placeholder:text-gray-400"
+                                className="w-full p-3.5 border border-gray-200 dark:border-darkHover dark:bg-darkBg dark:text-white rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all text-sm placeholder:text-gray-400"
                                 placeholder="name@example.com"
                             />
                         </div>
 
                         <div>
-                            <label className="block text-xs font-bold text-primary/80 uppercase tracking-wider mb-2 flex justify-between items-center">
+                            <label className="block text-xs font-bold text-primary/80 dark:text-gray-300 uppercase tracking-wider mb-2 flex justify-between items-center">
                                 <span>Password</span>
                             </label>
                             <div className="relative">
@@ -191,13 +191,13 @@ const Login = ({ mode = 'login' }) => {
                                     required
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
-                                    className="w-full p-3.5 pr-12 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all text-sm placeholder:text-gray-400"
+                                    className="w-full p-3.5 pr-12 border border-gray-200 dark:border-darkHover dark:bg-darkBg dark:text-white rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all text-sm placeholder:text-gray-400"
                                     placeholder="••••••••"
                                 />
                                 <button
                                     type="button"
                                     onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-primary transition-colors focus:outline-none"
+                                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-primary dark:hover:text-white transition-colors focus:outline-none"
                                 >
                                     {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                                 </button>
@@ -207,7 +207,7 @@ const Login = ({ mode = 'login' }) => {
                         {/* Sign Up Password Confirmation */}
                         {activeTab === 'register' && (
                             <div className="animate-in fade-in slide-in-from-top-2 duration-300">
-                                <label className="block text-xs font-bold text-primary/80 uppercase tracking-wider mb-2">
+                                <label className="block text-xs font-bold text-primary/80 dark:text-gray-300 uppercase tracking-wider mb-2">
                                     Confirm Password
                                 </label>
                                 <input
@@ -215,7 +215,7 @@ const Login = ({ mode = 'login' }) => {
                                     required
                                     value={confirmPassword}
                                     onChange={(e) => setConfirmPassword(e.target.value)}
-                                    className="w-full p-3.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all text-sm placeholder:text-gray-400"
+                                    className="w-full p-3.5 border border-gray-200 dark:border-darkHover dark:bg-darkBg dark:text-white rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all text-sm placeholder:text-gray-400"
                                     placeholder="••••••••"
                                 />
                             </div>
@@ -224,7 +224,7 @@ const Login = ({ mode = 'login' }) => {
                         <button
                             type="submit"
                             disabled={loading}
-                            className="w-full bg-primary text-white py-4 rounded-2xl font-bold hover:bg-opacity-95 transition-all disabled:opacity-50 mt-4 flex items-center justify-center gap-2 group shadow-lg shadow-blue-900/10"
+                            className="w-full bg-gradient-to-r from-primary to-primary-light dark:from-accent dark:to-accent-light text-white py-4 rounded-2xl font-bold hover:bg-opacity-95 transition-all disabled:opacity-50 mt-4 flex items-center justify-center gap-2 group shadow-soft-lg shadow-blue-900/10 dark:shadow-none"
                         >
                             <span>
                                 {loading
@@ -238,13 +238,13 @@ const Login = ({ mode = 'login' }) => {
                     </form>
 
                     {/* Bottom Helper */}
-                    <div className="text-center mt-6 pt-6 border-t border-gray-50 text-xs text-gray-500">
+                    <div className="text-center mt-6 pt-6 border-t border-gray-50 dark:border-darkHover text-xs text-gray-500 dark:text-gray-400">
                         {activeTab === 'register' ? (
                             <span>
                                 Already have an account?{' '}
                                 <button
                                     onClick={() => handleTabChange('user')}
-                                    className="text-primary font-bold hover:underline"
+                                    className="text-primary dark:text-white font-bold hover:underline"
                                 >
                                     Sign In here
                                 </button>
@@ -255,14 +255,14 @@ const Login = ({ mode = 'login' }) => {
                                     Don't have an account?{' '}
                                     <button
                                         onClick={() => handleTabChange('register')}
-                                        className="text-primary font-bold hover:underline"
+                                        className="text-primary dark:text-white font-bold hover:underline"
                                     >
                                         Register free today
                                     </button>
                                 </span>
-                                <div className="pt-2 border-t border-gray-100/50 mt-1 flex justify-center items-center gap-1.5 text-[11px] text-gray-400">
+                                <div className="pt-2 border-t border-gray-100/50 dark:border-darkHover mt-1 flex justify-center items-center gap-1.5 text-[11px] text-gray-400">
                                     <span>Are you a map administrator?</span>
-                                    <Link to="/admin-login" className="text-accent font-bold hover:underline">
+                                    <Link to="/admin-login" className="text-accent dark:text-accent-light font-bold hover:underline">
                                         Admin Portal Access
                                     </Link>
                                 </div>

@@ -1,5 +1,7 @@
 package com.project.service;
 
+import com.project.entity.Building;
+import com.project.entity.Floor;
 import com.project.entity.Location;
 import com.project.entity.PathConnection;
 import com.project.repository.LocationRepository;
@@ -59,10 +61,22 @@ public class NavigationServiceTest {
 
     @BeforeEach
     public void setUp() {
+<<<<<<< HEAD
         loc1 = createLocation(1L, "Room A", "Source room on floor 1", 10, 10);
         loc2 = createLocation(2L, "Room B", "Intermediate room on floor 1", 20, 10);
         loc3 = createLocation(3L, "Room C", "Intermediate room on floor 2", 20, 20);
         loc4 = createLocation(4L, "Room D", "Destination on floor 2", 30, 20);
+=======
+        Building building = new Building(1L, "Main Building", "Description");
+        Floor floor1 = new Floor(1L, building, 1, "Floor 1", null);
+        Floor floor2 = new Floor(2L, building, 2, "Floor 2", null);
+
+        // ID, Name, Description, X, Y, Floor
+        loc1 = new Location(1L, "Room A", "Source room on floor 1", 10, 10, floor1);
+        loc2 = new Location(2L, "Room B", "Intermediate room on floor 1", 20, 10, floor1);
+        loc3 = new Location(3L, "Room C", "Intermediate room on floor 2", 20, 20, floor2);
+        loc4 = new Location(4L, "Room D", "Destination on floor 2", 30, 20, floor2);
+>>>>>>> 00c7ee86ac2ed1b2f4818eb4ac0dcedf348c4718
     }
 
     @Test

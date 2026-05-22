@@ -4,13 +4,22 @@
 
 @layer base {
   body {
-    @apply bg-secondary text-primary font-sans;
+    @apply bg-gradient-to-br from-secondary to-[#F5EBE1] text-primary font-sans transition-colors duration-300 min-h-screen;
+  }
+  .dark body {
+    @apply bg-darkBg text-gray-300;
   }
 }
 
 .glass {
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: rgba(232, 213, 196, 0.4);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
 }
+
+.dark .glass {
+  background: rgba(22, 27, 34, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+

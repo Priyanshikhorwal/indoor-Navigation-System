@@ -198,7 +198,7 @@ const Navigation = () => {
     const isPathActive = path.length > 1;
 
     return (
-        <div className="min-h-screen bg-secondary py-12 px-4">
+        <div className="min-h-screen bg-gradient-to-br from-secondary to-secondary-dark dark:from-darkBg dark:to-darkBg py-12 px-4">
             {/* Embedded styles for pulse animation and animated route lines */}
             <style>{`
                 @keyframes pulse-ring {
@@ -224,8 +224,8 @@ const Navigation = () => {
                     
                     {/* Left Column: Form & Route Guidance */}
                     <div className="lg:col-span-4 space-y-6">
-                        <div className="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100">
-                            <div className="bg-primary p-6 text-white flex items-center justify-between">
+                        <div className="bg-white dark:bg-darkCard rounded-2xl shadow-soft-lg dark:shadow-none overflow-hidden border border-gray-100 dark:border-darkHover">
+                            <div className="bg-gradient-to-r from-primary to-primary-light dark:from-darkCard dark:to-darkBg p-6 text-white flex items-center justify-between dark:border-b dark:border-darkHover">
                                 <div className="flex items-center gap-3">
                                     <Navigation2 className="w-7 h-7" />
                                     <h1 className="text-xl font-bold">Find Your Route</h1>
@@ -246,7 +246,7 @@ const Navigation = () => {
                                 {fetchingLocs ? <Loader /> : (
                                     <form onSubmit={handleFindPath} className="space-y-5">
                                         <div>
-                                            <label className="block text-sm font-semibold text-gray-700 mb-1.5 flex items-center gap-1.5">
+                                            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5 flex items-center gap-1.5">
                                                 <div className="w-2.5 h-2.5 rounded-full bg-green-500"></div>
                                                 Current Location
                                             </label>
@@ -257,7 +257,7 @@ const Navigation = () => {
                                                     setSource(e.target.value);
                                                     setPath([]);
                                                 }}
-                                                className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all text-sm"
+                                                className="w-full p-3 border border-gray-300 dark:border-darkHover dark:bg-darkBg dark:text-white rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all text-sm"
                                             >
                                                 <option value="">Select source...</option>
                                                 {locations.map(loc => (
@@ -268,8 +268,8 @@ const Navigation = () => {
                                             </select>
                                         </div>
                                         <div>
-                                            <label className="block text-sm font-semibold text-gray-700 mb-1.5 flex items-center gap-1.5">
-                                                <div className="w-2.5 h-2.5 rounded-full bg-accent"></div>
+                                            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5 flex items-center gap-1.5">
+                                                <div className="w-2.5 h-2.5 rounded-full bg-gradient-to-r from-accent to-accent-light"></div>
                                                 Destination
                                             </label>
                                             <select 
@@ -279,7 +279,7 @@ const Navigation = () => {
                                                     setDestination(e.target.value);
                                                     setPath([]);
                                                 }}
-                                                className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all text-sm"
+                                                className="w-full p-3 border border-gray-300 dark:border-darkHover dark:bg-darkBg dark:text-white rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all text-sm"
                                             >
                                                 <option value="">Select destination...</option>
                                                 {locations.map(loc => (
@@ -295,7 +295,7 @@ const Navigation = () => {
                                         <button 
                                             type="submit" 
                                             disabled={loading || !source || !destination}
-                                            className="w-full bg-accent text-white py-3.5 rounded-xl font-bold text-base hover:bg-opacity-95 transition-all disabled:opacity-50 shadow-md shadow-red-200"
+                                            className="w-full bg-gradient-to-r from-accent to-accent-light text-white py-3.5 rounded-xl font-bold text-base hover:bg-opacity-95 transition-all disabled:opacity-50 shadow-soft shadow-red-200"
                                         >
                                             {loading ? 'Calculating Path...' : 'Find Shortest Path'}
                                         </button>
@@ -305,7 +305,7 @@ const Navigation = () => {
                         </div>
 
                         {/* Interactive map helper note */}
-                        <div className="bg-primary/5 p-4 rounded-2xl border border-primary/10 text-xs text-primary leading-relaxed flex gap-2">
+                        <div className="bg-gradient-to-r from-primary to-primary-light/5 dark:from-darkCard dark:to-darkBg p-4 rounded-2xl border border-primary/10 dark:border-darkHover text-xs text-primary dark:text-gray-300 leading-relaxed flex gap-2">
                             <Compass className="w-5 h-5 text-primary shrink-0 mt-0.5" />
                             <span>
                                 <strong>Interactive Map Tip:</strong> You can click any room directly on the visual map coordinate graph to set your starting point and destination!
@@ -314,8 +314,8 @@ const Navigation = () => {
 
                         {/* Text Route Guidance Timeline */}
                         {isPathActive && (
-                            <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 animate-in fade-in slide-in-from-bottom-4 duration-300">
-                                <h2 className="text-lg font-bold text-primary mb-5 flex items-center gap-2">
+                            <div className="bg-white dark:bg-darkCard rounded-2xl shadow-soft-lg dark:shadow-none p-6 border border-gray-100 dark:border-darkHover animate-in fade-in slide-in-from-bottom-4 duration-300">
+                                <h2 className="text-lg font-bold text-primary dark:text-white mb-5 flex items-center gap-2">
                                     <MapPin className="text-accent" />
                                     Route Guidance
                                 </h2>
@@ -329,15 +329,15 @@ const Navigation = () => {
                                         className={`w-full py-2.5 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 border mb-5 ${
                                             isSaved 
                                                 ? 'bg-green-55 border-green-200 text-green-750 cursor-default' 
-                                                : 'bg-white border-gray-200 hover:border-primary text-primary hover:bg-gray-50'
+                                                : 'bg-white dark:bg-darkBg border-gray-200 dark:border-darkHover hover:border-primary text-primary dark:text-white hover:bg-gray-50 dark:hover:bg-darkHover'
                                         }`}
                                     >
                                         <Star className={`w-4 h-4 ${isSaved ? 'fill-green-600 text-green-600' : 'text-primary'}`} />
                                         <span>{isSaved ? 'Saved to Favorites!' : 'Save Route to Favorites'}</span>
                                     </button>
                                 ) : !localStorage.getItem('token') ? (
-                                    <div className="bg-primary/5 border border-primary/10 rounded-xl p-3.5 mb-5 flex flex-col gap-2 animate-in fade-in duration-200">
-                                        <div className="flex items-center gap-2 text-xs font-bold text-primary">
+                                    <div className="bg-gradient-to-r from-primary to-primary-light/5 dark:from-darkCard dark:to-darkBg border border-primary/10 dark:border-darkHover rounded-xl p-3.5 mb-5 flex flex-col gap-2 animate-in fade-in duration-200">
+                                        <div className="flex items-center gap-2 text-xs font-bold text-primary dark:text-white">
                                             <Star className="w-4 h-4 text-accent fill-accent shrink-0" />
                                             <span>Pin this Route to Favorites</span>
                                         </div>
@@ -361,11 +361,11 @@ const Navigation = () => {
                                             <React.Fragment key={index}>
                                                 {showTransition && (
                                                     <div className="mb-6 ml-6 relative">
-                                                        <div className="absolute -left-[32px] w-4.5 h-4.5 rounded-full border-2 border-white bg-accent flex items-center justify-center shadow-sm">
+                                                        <div className="absolute -left-[32px] w-4.5 h-4.5 rounded-full border-2 border-white bg-gradient-to-r from-accent to-accent-light flex items-center justify-center shadow-soft">
                                                             <div className="w-1.5 h-1.5 rounded-full bg-white"></div>
                                                         </div>
-                                                        <div className="bg-accent/5 border border-accent/15 rounded-xl p-3 flex items-center gap-3 animate-in fade-in slide-in-from-left-4 duration-200">
-                                                            <div className="p-1.5 bg-accent/10 text-accent rounded-lg">
+                                                        <div className="bg-gradient-to-r from-accent to-accent-light/5 border border-accent/15 rounded-xl p-3 flex items-center gap-3 animate-in fade-in slide-in-from-left-4 duration-200">
+                                                            <div className="p-1.5 bg-gradient-to-r from-accent to-accent-light/10 text-accent rounded-lg">
                                                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
                                                                     <path strokeLinecap="round" strokeLinejoin="round" d="M8 7l4-4m0 0l4 4m-4-4v18" />
                                                                 </svg>
@@ -384,19 +384,19 @@ const Navigation = () => {
                                                     <div 
                                                         className={`absolute -left-[32px] w-4.5 h-4.5 rounded-full border-2 border-white flex items-center justify-center ${
                                                             index === 0 
-                                                                ? 'bg-green-500 shadow-md shadow-green-200' 
+                                                                ? 'bg-green-500 shadow-soft shadow-green-200' 
                                                                 : index === path.length - 1 
-                                                                    ? 'bg-accent shadow-md shadow-red-200' 
-                                                                    : 'bg-primary'
+                                                                    ? 'bg-gradient-to-r from-accent to-accent-light shadow-soft shadow-red-200' 
+                                                                    : 'bg-gradient-to-r from-primary to-primary-light'
                                                         }`}
                                                     >
                                                         {/* Minor inner dot for visually premium look */}
                                                         <div className="w-1.5 h-1.5 rounded-full bg-white"></div>
                                                     </div>
-                                                    <h3 className="text-sm font-bold text-gray-800 leading-none">{loc.name}</h3>
+                                                    <h3 className="text-sm font-bold text-gray-800 dark:text-gray-200 leading-none">{loc.name}</h3>
                                                     {loc.description && <p className="text-gray-500 text-xs mt-1">{loc.description}</p>}
                                                     {loc.floor && (
-                                                        <span className="inline-block mt-1 text-[10px] font-bold bg-secondary text-primary px-1.5 py-0.5 rounded uppercase">
+                                                        <span className="inline-block mt-1 text-[10px] font-bold bg-gradient-to-br from-secondary to-secondary-dark text-primary px-1.5 py-0.5 rounded uppercase">
                                                             Floor {loc.floor}
                                                         </span>
                                                     )}
@@ -410,17 +410,17 @@ const Navigation = () => {
                     </div>
 
                     {/* Right Column: Visual Map Coordinate Grid */}
-                    <div className="lg:col-span-8 bg-white rounded-2xl shadow-lg p-6 border border-gray-100 flex flex-col space-y-4">
+                    <div className="lg:col-span-8 bg-white dark:bg-darkCard rounded-2xl shadow-soft-lg dark:shadow-none p-6 border border-gray-100 dark:border-darkHover flex flex-col space-y-4">
                         
                         {/* Map Header & Floor Tab Controls */}
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-100 pb-4">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-100 dark:border-darkHover pb-4">
                             <div>
-                                <h2 className="text-xl font-bold text-primary">Interactive Floor Map</h2>
+                                <h2 className="text-xl font-bold text-primary dark:text-white">Interactive Floor Map</h2>
                                 <p className="text-xs text-gray-500 mt-0.5">Visual representation of nodes and computed routes</p>
                             </div>
                             
                             {/* Dynamic Floor Selector Tabs */}
-                            <div className="flex flex-wrap gap-1.5 bg-secondary p-1 rounded-xl">
+                            <div className="flex flex-wrap gap-1.5 bg-gradient-to-br from-secondary to-secondary-dark dark:from-darkBg dark:to-darkBg p-1 rounded-xl border dark:border-darkHover">
                                 {mapFloors.map(floor => (
                                     <button
                                         type="button"
@@ -428,8 +428,8 @@ const Navigation = () => {
                                         onClick={() => setSelectedMapFloor(floor)}
                                         className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
                                             selectedMapFloor === floor
-                                                ? 'bg-primary text-white shadow-sm'
-                                                : 'text-primary/70 hover:text-primary hover:bg-white/50'
+                                                ? 'bg-gradient-to-r from-primary to-primary-light text-white shadow-soft'
+                                                : 'text-primary/70 hover:text-primary dark:text-gray-400 dark:hover:text-white hover:bg-white/50 dark:hover:bg-darkHover'
                                         }`}
                                     >
                                         {floor === 'All' ? 'All Floors' : `Floor ${floor}`}
@@ -439,19 +439,19 @@ const Navigation = () => {
                         </div>
 
                         {/* Interactive Graph Canvas Wrapper */}
-                        <div className="relative border border-gray-100 rounded-2xl overflow-hidden bg-gray-50/50 aspect-[8/5.5]">
+                        <div className="relative border border-gray-100 dark:border-darkHover rounded-2xl overflow-hidden bg-gray-50/50 dark:bg-darkBg aspect-[8/5.5]">
                             
                             {/* Tooltip Overlay */}
                             {hoveredNode && (
                                 <div 
-                                    className="absolute bg-white/95 backdrop-blur p-3 rounded-xl shadow-xl border border-gray-100 z-30 pointer-events-none transition-all duration-100"
+                                    className="absolute bg-white/95 dark:bg-darkCard/95 backdrop-blur p-3 rounded-xl shadow-soft-lg dark:shadow-none border border-gray-100 dark:border-darkHover z-30 pointer-events-none transition-all duration-100"
                                     style={{
                                         left: `${(scaleX(hoveredNode.xCoordinate) / svgWidth) * 100}%`,
                                         top: `${(scaleY(hoveredNode.yCoordinate) / svgHeight) * 100 - 15}%`,
                                         transform: 'translate(-50%, -100%)'
                                     }}
                                 >
-                                    <div className="text-xs font-bold text-primary">{hoveredNode.name}</div>
+                                    <div className="text-xs font-bold text-primary dark:text-white">{hoveredNode.name}</div>
                                     {hoveredNode.floor && <div className="text-[10px] text-gray-400 font-bold uppercase mt-0.5">Floor {hoveredNode.floor}</div>}
                                     {hoveredNode.description && <div className="text-[10px] text-gray-500 mt-1 max-w-[160px] line-clamp-2">{hoveredNode.description}</div>}
                                     <div className="text-[9px] text-accent font-bold mt-1.5 italic">Click to select</div>
@@ -599,7 +599,7 @@ const Navigation = () => {
                                                     x={cx} 
                                                     y={cy - 16} 
                                                     textAnchor="middle" 
-                                                    className="text-[11px] font-black fill-primary pointer-events-none select-none bg-white px-1"
+                                                    className="text-[11px] font-black fill-primary dark:fill-white pointer-events-none select-none px-1"
                                                 >
                                                     {isSource ? 'START 📍' : 'END 🏁'}
                                                 </text>
@@ -610,28 +610,28 @@ const Navigation = () => {
                             </svg>
 
                             {/* Dynamic Floor Label display overlay */}
-                            <div className="absolute top-4 left-4 bg-primary/95 text-white backdrop-blur text-xs font-bold px-3 py-1.5 rounded-xl shadow-md flex items-center gap-1.5 select-none pointer-events-none">
+                            <div className="absolute top-4 left-4 bg-gradient-to-r from-primary to-primary-light/95 dark:from-darkCard dark:to-darkCard/95 text-white backdrop-blur text-xs font-bold px-3 py-1.5 rounded-xl shadow-soft dark:shadow-none border dark:border-darkHover flex items-center gap-1.5 select-none pointer-events-none">
                                 <Compass className="w-3.5 h-3.5" />
                                 <span>Active Floor: {selectedMapFloor === 'All' ? 'Full Layout' : `Floor ${selectedMapFloor}`}</span>
                             </div>
                         </div>
 
                         {/* Map Footer Legend */}
-                        <div className="flex flex-wrap items-center justify-center gap-6 bg-secondary/50 p-3 rounded-xl text-xs text-primary border border-gray-100">
+                        <div className="flex flex-wrap items-center justify-center gap-6 bg-gradient-to-br from-secondary to-secondary-dark/50 dark:from-darkBg dark:to-darkBg p-3 rounded-xl text-xs text-primary dark:text-gray-300 border border-gray-100 dark:border-darkHover">
                             <div className="flex items-center gap-2">
                                 <div className="w-3 h-3 rounded-full bg-green-500 border border-green-200"></div>
                                 <span className="font-semibold">Start Location (Source)</span>
                             </div>
                             <div className="flex items-center gap-2">
-                                <div className="w-3 h-3 rounded-full bg-accent border border-red-200"></div>
+                                <div className="w-3 h-3 rounded-full bg-gradient-to-r from-accent to-accent-light border border-red-200"></div>
                                 <span className="font-semibold">End Destination</span>
                             </div>
                             <div className="flex items-center gap-2">
-                                <div className="w-3 h-3 rounded-full bg-primary border border-blue-200"></div>
+                                <div className="w-3 h-3 rounded-full bg-gradient-to-r from-primary to-primary-light border border-blue-200"></div>
                                 <span className="font-semibold">Route Node</span>
                             </div>
                             <div className="flex items-center gap-2">
-                                <div className="w-5 h-1 bg-accent relative flex items-center justify-center">
+                                <div className="w-5 h-1 bg-gradient-to-r from-accent to-accent-light relative flex items-center justify-center">
                                     <div className="absolute w-full h-[1.5px] bg-red-400 route-line-animated"></div>
                                 </div>
                                 <span className="font-semibold">Computed Pathway</span>
