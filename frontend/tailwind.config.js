@@ -8,10 +8,16 @@ export default {
   theme: {
     extend: {
       colors: {
-        primary: {
-          DEFAULT: "#8D6E63", // Darkest brown
-          light: "#B08968",
+        teal: {
+          900: "#1a4a4a",  // darkest — navbar/hero/footer bg
+          800: "#2a6b6b",  // dark — footer secondary bg
+          600: "#3d8b8b",  // mid-dark — section accents
+          500: "#5aadad",  // mid — buttons, icons
+          300: "#8dd4d4",  // mid-light — icon tiles, borders
+          100: "#c4eaea",  // light — chips, card borders
+          50:  "#eaf7f7",  // lightest — page background
         },
+<<<<<<< HEAD
         secondary: {
           DEFAULT: "#E8D5C4", // Lightest beige
           dark: "#D8B89C",
@@ -26,11 +32,12 @@ export default {
         activeMenu: "#3B82F6",
         textLight: "#F8FAFC",
         iconColor: "#CBD5E1",
+=======
+>>>>>>> 800dc139436582a3d8cf9fe81a373a81aea8de0f
       },
-      boxShadow: {
-        'soft': '0 4px 20px -2px rgba(141, 110, 99, 0.15)',
-        'soft-lg': '0 10px 30px -3px rgba(141, 110, 99, 0.2)',
-      }
+      fontFamily: {
+        sans: ['Inter', 'system-ui', 'sans-serif'],
+      },
     },
   },
   plugins: [],

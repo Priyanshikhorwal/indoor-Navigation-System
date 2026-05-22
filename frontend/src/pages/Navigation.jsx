@@ -675,7 +675,8 @@ const Navigation = () => {
                                             </g>
                                         );
                                     })}
-                            </svg>
+                                </g></svg>
+                            
 
                             {/* Floating zoom/pan controls */}
                             <div className="absolute bottom-4 right-4 flex gap-2 z-20">
