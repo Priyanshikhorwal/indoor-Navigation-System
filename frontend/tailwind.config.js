@@ -1,6 +1,5 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  darkMode: 'class',
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
@@ -8,36 +7,10 @@ export default {
   theme: {
     extend: {
       colors: {
-        teal: {
-          900: "#1a4a4a",  // darkest — navbar/hero/footer bg
-          800: "#2a6b6b",  // dark — footer secondary bg
-          600: "#3d8b8b",  // mid-dark — section accents
-          500: "#5aadad",  // mid — buttons, icons
-          300: "#8dd4d4",  // mid-light — icon tiles, borders
-          100: "#c4eaea",  // light — chips, card borders
-          50:  "#eaf7f7",  // lightest — page background
-        },
-<<<<<<< HEAD
-        secondary: {
-          DEFAULT: "#E8D5C4", // Lightest beige
-          dark: "#D8B89C",
-        },
-        accent: {
-          DEFAULT: "#C7A27C", // Mid tone
-          light: "#D8B89C",
-        },
-        darkBg: "#0F172A",
-        darkCard: "#161B22",
-        darkHover: "#1E293B",
-        activeMenu: "#3B82F6",
-        textLight: "#F8FAFC",
-        iconColor: "#CBD5E1",
-=======
->>>>>>> 800dc139436582a3d8cf9fe81a373a81aea8de0f
-      },
-      fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
-      },
+        primary: "#0A2463",
+        secondary: "#EAF2EF",
+        accent: "#FB3640",
+      }
     },
   },
   plugins: [],
