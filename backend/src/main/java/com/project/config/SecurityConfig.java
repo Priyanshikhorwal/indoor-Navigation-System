@@ -35,9 +35,23 @@ public class SecurityConfig {
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
+                .exceptionHandling(ex -> ex
+                        // Return JSON 401 instead of HTML redirect for missing/invalid tokens
+                        .authenticationEntryPoint((request, response, authException) -> {
+                            response.setStatus(401);
+                            response.setContentType("application/json");
+                            response.getWriter().write("{\"error\":\"Authentication required. Please log in.\"}");
+                        })
+                        // Return JSON 403 for access-denied (role mismatch)
+                        .accessDeniedHandler((request, response, accessDeniedException) -> {
+                            response.setStatus(403);
+                            response.setContentType("application/json");
+                            response.getWriter().write("{\"error\":\"Access denied. Insufficient permissions.\"}");
+                        })
+                )
                 .authorizeHttpRequests(auth -> auth
-                        // Public auth endpoints
-                        .requestMatchers("/api/auth/login", "/api/auth/register").permitAll()
+                        // Public auth endpoints — user login, registration, AND admin login
+                        .requestMatchers("/api/auth/login", "/api/auth/register", "/api/auth/admin/login").permitAll()
                         // Public read-only endpoints (rooms, nodes, edges, floors, buildings, pathfinding)
                         .requestMatchers(HttpMethod.GET, "/api/rooms", "/api/rooms/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/nodes", "/api/nodes/**").permitAll()

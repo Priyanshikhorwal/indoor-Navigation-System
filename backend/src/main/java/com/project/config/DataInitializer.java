@@ -25,17 +25,30 @@ public class DataInitializer implements CommandLineRunner {
     private final EdgeRepository edgeRepository;
     private final PasswordEncoder passwordEncoder;
 
+    @org.springframework.beans.factory.annotation.Value("${admin.email}")
+    private String adminEmail;
+
+    @org.springframework.beans.factory.annotation.Value("${admin.password}")
+    private String adminPassword;
+
     @Override
     public void run(String... args) throws Exception {
         log.info("Checking if database needs to be seeded...");
 
-        // 1. Seed Users
-        if (userRepository.count() == 0) {
-            log.info("Seeding users...");
-            userRepository.save(new User(null, "admin@example.com", passwordEncoder.encode("adminpassword"), "ROLE_ADMIN"));
-            userRepository.save(new User(null, "user@example.com", passwordEncoder.encode("userpassword"), "ROLE_USER"));
-            log.info("Created users.");
+        // 1. Seed the single admin user — idempotent, never creates duplicates
+        if (!userRepository.existsByEmail(adminEmail)) {
+            userRepository.save(new User(null, adminEmail, passwordEncoder.encode(adminPassword), "ROLE_ADMIN"));
+            log.info("Created admin user: {}", adminEmail);
+        } else {
+            log.info("Admin user already exists, skipping creation.");
         }
+
+        // Seed default user for development/testing
+        if (!userRepository.existsByEmail("user@example.com")) {
+            userRepository.save(new User(null, "user@example.com", passwordEncoder.encode("userpassword"), "ROLE_USER"));
+            log.info("Created default test user.");
+        }
+
 
         // Check if navigation data is already seeded
         if (floorRepository.count() > 0 && roomRepository.count() > 0 && nodeRepository.count() > 0) {
