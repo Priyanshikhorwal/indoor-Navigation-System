@@ -37,15 +37,249 @@ const AdminDashboard = () => {
         fetchLocations();
     }, []);
 
-    const fetchLocations = async () => {
-        try {
-            const res = await api.get('/locations');
-            setLocations(res.data);
-        } catch (err) {
-            setError('Failed to fetch locations');
-        } finally {
-            setLoading(false);
+  // Data states
+  const [locations, setLocations] = useState([]);
+  const [floors, setFloors] = useState([]);
+  const [buildings, setBuildings] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Modal / Form state
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState('add'); // 'add' | 'edit'
+  
+  // Room form payload
+  const [roomForm, setRoomForm] = useState({
+    id: '',
+    name: '',
+    floorId: '',
+    status: 'Available',
+    description: '',
+    xCoordinate: '1',
+    yCoordinate: '1',
+  });
+
+  // Floor form payload
+  const [floorForm, setFloorForm] = useState({
+    floorName: '',
+    floorNumber: '',
+    buildingId: '',
+  });
+
+  // User form payload
+  const [userForm, setUserForm] = useState({
+    email: '',
+    role: 'ROLE_USER',
+  });
+
+  // Initialize data
+  useEffect(() => {
+    if (token && role === 'ROLE_ADMIN') {
+      fetchData();
+    }
+  }, [token, role]);
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const [roomsRes, nodesRes, floorRes, buildRes] = await Promise.all([
+        api.get('/rooms'),
+        api.get('/nodes'),
+        api.get('/floors'),
+        api.get('/buildings'),
+      ]);
+
+      const roomsData = roomsRes.data.map(room => {
+        const matchingNode = nodesRes.data.find(node => node.room && node.room.id === room.id);
+        return {
+          ...room,
+          xCoordinate: matchingNode ? matchingNode.xCoordinate : '',
+          yCoordinate: matchingNode ? matchingNode.yCoordinate : '',
+          nodeId: matchingNode ? matchingNode.id : null
+        };
+      });
+
+      setLocations(roomsData);
+      setFloors(floorRes.data);
+      setBuildings(buildRes.data);
+
+      // Load or initialize mock users in localStorage
+      const savedUsers = localStorage.getItem('admin_users');
+      if (savedUsers) {
+        setUsers(JSON.parse(savedUsers));
+      } else {
+        const initialUsers = [
+          { id: 1, email: 'admin@example.com', role: 'ROLE_ADMIN' },
+          { id: 2, email: 'visitor@example.com', role: 'ROLE_USER' },
+        ];
+        localStorage.setItem('admin_users', JSON.stringify(initialUsers));
+        setUsers(initialUsers);
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Failed to fetch system data.', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('role');
+    localStorage.removeItem('email');
+    navigate('/admin/login');
+  };
+
+  // Get dynamic room status from localStorage (synced with Home navigation mapping)
+  const getRoomStatus = (loc) => {
+    const saved = localStorage.getItem(`room_status_${loc.id}`);
+    if (saved) return saved;
+    return loc.id % 3 === 0 ? 'Occupied' : 'Available';
+  };
+
+  const updateRoomStatus = (id, status) => {
+    localStorage.setItem(`room_status_${id}`, status);
+  };
+
+  // ROOM actions
+  const openAddRoom = () => {
+    setModalMode('add');
+    setRoomForm({
+      id: '',
+      name: '',
+      floorId: floors[0]?.id || '',
+      status: 'Available',
+      description: '',
+      xCoordinate: '1',
+      yCoordinate: '1',
+    });
+    setIsModalOpen(true);
+  };
+
+  const openEditRoom = (room) => {
+    setModalMode('edit');
+    setRoomForm({
+      id: room.id,
+      name: room.name,
+      floorId: room.floor?.id || '',
+      status: getRoomStatus(room),
+      description: room.description || '',
+      xCoordinate: room.xcoordinate ?? room.xCoordinate ?? '1',
+      yCoordinate: room.ycoordinate ?? room.yCoordinate ?? '1',
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleRoomSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const roomPayload = {
+        name: roomForm.name,
+        description: roomForm.description,
+        type: 'ROOM',
+        floor: roomForm.floorId ? { id: parseInt(roomForm.floorId) } : null,
+      };
+
+      if (modalMode === 'add') {
+        const res = await api.post('/rooms', roomPayload);
+        const createdRoom = res.data;
+        updateRoomStatus(createdRoom.id, roomForm.status);
+
+        // Create matching Node coordinate mapping
+        const nodePayload = {
+          xCoordinate: parseInt(roomForm.xCoordinate),
+          yCoordinate: parseInt(roomForm.yCoordinate),
+          floor: roomForm.floorId ? { id: parseInt(roomForm.floorId) } : null,
+          room: { id: createdRoom.id }
+        };
+        await api.post('/nodes', nodePayload);
+        showToast('Room added successfully!', 'success');
+      } else {
+        const res = await api.put(`/rooms/${roomForm.id}`, { ...roomPayload, id: roomForm.id });
+        const updatedRoom = res.data;
+        updateRoomStatus(roomForm.id, roomForm.status);
+
+        // Find existing nodeId to update
+        const currentRoom = locations.find(r => r.id === roomForm.id);
+        const nodePayload = {
+          xCoordinate: parseInt(roomForm.xCoordinate),
+          yCoordinate: parseInt(roomForm.yCoordinate),
+          floor: roomForm.floorId ? { id: parseInt(roomForm.floorId) } : null,
+          room: { id: updatedRoom.id }
+        };
+
+        if (currentRoom && currentRoom.nodeId) {
+          await api.put(`/nodes/${currentRoom.nodeId}`, { ...nodePayload, id: currentRoom.nodeId });
+        } else {
+          await api.post('/nodes', nodePayload);
         }
+        showToast('Room updated successfully!', 'success');
+      }
+      setIsModalOpen(false);
+      fetchData();
+    } catch (err) {
+      console.error(err);
+      showToast('Failed to save room details.', 'error');
+    }
+  };
+
+  const handleDeleteRoom = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this room?')) return;
+    try {
+      const currentRoom = locations.find(r => r.id === id);
+      if (currentRoom && currentRoom.nodeId) {
+        await api.delete(`/nodes/${currentRoom.nodeId}`);
+      }
+      await api.delete(`/rooms/${id}`);
+      localStorage.removeItem(`room_status_${id}`);
+      showToast('Room deleted successfully.', 'success');
+      fetchData();
+    } catch (err) {
+      console.error(err);
+      showToast('Failed to delete room. It might be linked to routing paths.', 'error');
+    }
+  };
+
+  // FLOOR actions
+  const handleFloorSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const payload = {
+        floorName: floorForm.floorName,
+        floorNumber: parseInt(floorForm.floorNumber),
+        building: floorForm.buildingId ? { id: parseInt(floorForm.buildingId) } : null,
+      };
+
+      await api.post('/floors', payload);
+      showToast('Floor added successfully!', 'success');
+      setFloorForm({ floorName: '', floorNumber: '', buildingId: '' });
+      setIsModalOpen(false);
+      fetchData();
+    } catch (err) {
+      console.error(err);
+      showToast('Failed to add floor.', 'error');
+    }
+  };
+
+  const handleDeleteFloor = async (id) => {
+    if (!window.confirm('Delete this floor? All linked locations might be impacted.')) return;
+    try {
+      await api.delete(`/floors/${id}`);
+      showToast('Floor deleted successfully.', 'success');
+      fetchData();
+    } catch (err) {
+      console.error(err);
+      showToast('Failed to delete floor.', 'error');
+    }
+  };
+
+  // USER actions (Mocked in localStorage for full admin capabilities)
+  const handleUserSubmit = (e) => {
+    e.preventDefault();
+    const newUser = {
+      id: Date.now(),
+      email: userForm.email,
+      role: userForm.role,
     };
 
     const handleAddLocation = async (e) => {
@@ -120,175 +354,147 @@ const AdminDashboard = () => {
         return Math.round(val);
     };
 
-    const reverseScaleY = (ry) => {
-        const range = maxY - minY || 1;
-        const val = minY + ((ry - padding) / (svgHeight - 2 * padding)) * range;
-        return Math.round(val);
-    };
-
-    const handlePointerDown = (e, loc) => {
-        e.preventDefault();
-        e.currentTarget.setPointerCapture(e.pointerId);
-        setDraggedNode(loc);
-    };
-
-    const handlePointerMove = (e) => {
-        if (!draggedNode) return;
-        e.preventDefault();
-        const rect = svgRef.current.getBoundingClientRect();
-        const rx = ((e.clientX - rect.left) / rect.width) * svgWidth;
-        const ry = ((e.clientY - rect.top) / rect.height) * svgHeight;
-        
-        const clampedRx = Math.max(padding, Math.min(svgWidth - padding, rx));
-        const clampedRy = Math.max(padding, Math.min(svgHeight - padding, ry));
-
-        const newX = reverseScaleX(clampedRx);
-        const newY = reverseScaleY(clampedRy);
-
-        setLocations(prev => prev.map(l => {
-            if (l.id === draggedNode.id) {
-                return { ...l, xCoordinate: newX, yCoordinate: newY };
-            }
-            return l;
-        }));
-    };
-
-    const handlePointerUp = async (e) => {
-        if (!draggedNode) return;
-        e.preventDefault();
-        e.currentTarget.releasePointerCapture(e.pointerId);
-
-        const finalNode = locations.find(l => l.id === draggedNode.id);
-        setDraggedNode(null);
-
-        if (finalNode) {
-            try {
-                await api.put(`/locations/${finalNode.id}`, finalNode);
-                setSuccess(`Relocated ${finalNode.name} to coordinates (${finalNode.xCoordinate}, ${finalNode.yCoordinate}) & saved to database! 📍`);
-                setTimeout(() => setSuccess(''), 2500);
-                fetchLocations();
-            } catch (err) {
-                setError('Failed to auto-save room drag relocation.');
-                setTimeout(() => setError(''), 3000);
-            }
-        }
-    };
-
-    // Location searching & filtering logic
-    const uniqueFloors = [...new Set(locations.map(loc => loc.floor).filter(Boolean))];
-    const filteredLocations = locations.filter(loc => {
-        const matchesSearch = loc.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                              (loc.description && loc.description.toLowerCase().includes(searchTerm.toLowerCase()));
-        const matchesFloor = !floorFilter || loc.floor === floorFilter;
-        return matchesSearch && matchesFloor;
-    });
-
-    // SVG scaling variables for blueprint map
-    const padding = 50;
-    const svgWidth = 800;
-    const svgHeight = 480;
-
-    const validLocations = locations.filter(l => l.xCoordinate !== null && l.yCoordinate !== null);
-    const xCoords = validLocations.map(l => l.xCoordinate);
-    const yCoords = validLocations.map(l => l.yCoordinate);
-
-    const minX = xCoords.length > 0 ? Math.min(...xCoords) : 0;
-    const maxX = xCoords.length > 0 ? Math.max(...xCoords) : 100;
-    const minY = yCoords.length > 0 ? Math.min(...yCoords) : 0;
-    const maxY = yCoords.length > 0 ? Math.max(...yCoords) : 100;
-
-    const scaleX = (x) => {
-        const range = maxX - minX || 1;
-        return padding + ((x - minX) / range) * (svgWidth - 2 * padding);
-    };
-
-    const scaleY = (y) => {
-        const range = maxY - minY || 1;
-        return padding + ((y - minY) / range) * (svgHeight - 2 * padding);
-    };
-
-    if (loading) return <Loader />;
-
-    // Auto generated SQL script block
-    const calculatedWeight = calculateDistance(startNode, endNode);
-    const generatedSql = startNode && endNode ? `INSERT INTO path_connections (id, source_id, destination_id, weight) 
-VALUES (NEXTVAL('path_connections_seq'), ${startNode.id}, ${endNode.id}, ${calculatedWeight});` : '';
-
-    return (
-        <div className="container mx-auto py-8 px-4 max-w-7xl">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-                <div>
-                    <h1 className="text-3xl font-extrabold text-primary">Admin Dashboard</h1>
-                    <p className="text-sm text-gray-500 mt-1">Configure and manage building room grids and network connection weights</p>
-                </div>
-                
-                {/* Tab Switchers */}
-                <div className="flex bg-secondary p-1 rounded-xl w-fit">
+              {/* Add Trigger Buttons */}
+              <div>
+                {activeTab === 'rooms' && (
+                  <button
+                    onClick={openAddRoom}
+                    style={{
+                      backgroundColor: T[600],
+                      color: '#ffffff',
+                      border: `0.5px solid ${T[800]}`,
+                      borderRadius: '4px',
+                      padding: '8px 16px',
+                      fontSize: '13px',
+                      fontWeight: 500,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      transition: 'background-color 0.15s',
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.backgroundColor = T[800]}
+                    onMouseLeave={e => e.currentTarget.style.backgroundColor = T[600]}
+                  >
+                    <Plus size={15} />
+                    <span>Add Room</span>
+                  </button>
+                )}
+                {activeTab === 'floors' && (
+                  <div style={{ display: 'flex', gap: '8px' }}>
                     <button
-                        onClick={() => setActiveTab('locations')}
-                        className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all ${
-                            activeTab === 'locations'
-                                ? 'bg-primary text-white shadow-sm'
-                                : 'text-primary/70 hover:text-primary hover:bg-white/50'
-                        }`}
+                      onClick={() => { setModalMode('add'); setIsModalOpen(true); }}
+                      style={{
+                        backgroundColor: T[600],
+                        color: '#ffffff',
+                        border: `0.5px solid ${T[800]}`,
+                        borderRadius: '4px',
+                        padding: '8px 16px',
+                        fontSize: '13px',
+                        fontWeight: 500,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        transition: 'background-color 0.15s',
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.backgroundColor = T[800]}
+                      onMouseLeave={e => e.currentTarget.style.backgroundColor = T[600]}
                     >
-                        <Compass className="w-4.5 h-4.5" />
-                        Manage Locations
+                      <Plus size={15} />
+                      <span>Add Floor</span>
                     </button>
-                    <button
-                        onClick={() => setActiveTab('connections')}
-                        className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all ${
-                            activeTab === 'connections'
-                                ? 'bg-primary text-white shadow-sm'
-                                : 'text-primary/70 hover:text-primary hover:bg-white/50'
-                        }`}
-                    >
-                        <Database className="w-4.5 h-4.5" />
-                        Path Connections
-                    </button>
-                </div>
+                  </div>
+                )}
+                {activeTab === 'users' && (
+                  <button
+                    onClick={() => { setModalMode('add'); setIsModalOpen(true); }}
+                    style={{
+                      backgroundColor: T[600],
+                      color: '#ffffff',
+                      border: `0.5px solid ${T[800]}`,
+                      borderRadius: '4px',
+                      padding: '8px 16px',
+                      fontSize: '13px',
+                      fontWeight: 500,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      transition: 'background-color 0.15s',
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.backgroundColor = T[800]}
+                    onMouseLeave={e => e.currentTarget.style.backgroundColor = T[600]}
+                  >
+                    <Plus size={15} />
+                    <span>Add User</span>
+                  </button>
+                )}
+              </div>
             </div>
             
-            {error && <div className="bg-red-100 text-red-700 p-3.5 rounded-xl mb-6 flex items-center gap-2 border border-red-200"><AlertCircle className="w-5 h-5 shrink-0" /> {error}</div>}
-            {success && <div className="bg-green-100 text-green-700 p-3.5 rounded-xl mb-6 flex items-center gap-2 border border-green-200"><Check className="w-5 h-5 shrink-0" /> {success}</div>}
-
-            {/* TAB 1: MANAGE LOCATIONS */}
-            {activeTab === 'locations' && (
-                <div className="space-y-6">
-                    {/* Expandable Add Location drawer trigger bar */}
-                    <div className="bg-white p-4 rounded-xl shadow border border-gray-100 flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-primary/10 text-primary rounded-lg">
-                                <Sparkles className="w-5 h-5" />
-                            </div>
-                            <div>
-                                <h3 className="font-bold text-gray-800">Add a New Room Location</h3>
-                                <p className="text-xs text-gray-500">Insert coordinate coordinates directly into database grids</p>
-                            </div>
-                        </div>
-                        <button 
-                            onClick={() => setShowAddForm(!showAddForm)}
-                            className="bg-primary text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-opacity-95 transition-all flex items-center gap-1.5"
-                        >
-                            <Plus className={`w-4 h-4 transition-transform duration-200 ${showAddForm ? 'rotate-45' : ''}`} />
-                            {showAddForm ? 'Close Editor' : 'Open Location Form'}
-                        </button>
-                    </div>
-
-                    {/* Expandable Add form slide container */}
-                    {showAddForm && (
-                        <div className="bg-white p-6 rounded-xl shadow border border-gray-100 animate-in fade-in slide-in-from-top-4 duration-200">
-                            <h2 className="text-lg font-bold mb-4 text-primary flex items-center gap-2">
-                                <Plus className="text-accent"/> Create New Node Record
-                            </h2>
-                            <form onSubmit={handleAddLocation} className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <input type="text" placeholder="Location Name" required value={newLoc.name} onChange={e=>setNewLoc({...newLoc, name: e.target.value})} className="p-2.5 border rounded-lg text-sm w-full outline-none focus:ring-2 focus:ring-primary focus:border-transparent" />
-                                <input type="text" placeholder="Description" value={newLoc.description} onChange={e=>setNewLoc({...newLoc, description: e.target.value})} className="p-2.5 border rounded-lg text-sm w-full outline-none focus:ring-2 focus:ring-primary focus:border-transparent" />
-                                <input type="text" placeholder="Floor (e.g. Ground, 1st)" value={newLoc.floor} onChange={e=>setNewLoc({...newLoc, floor: e.target.value})} className="p-2.5 border rounded-lg text-sm w-full outline-none focus:ring-2 focus:ring-primary focus:border-transparent" />
-                                <input type="number" placeholder="X Coordinate (Integer)" required value={newLoc.xCoordinate} onChange={e=>setNewLoc({...newLoc, xCoordinate: e.target.value})} className="p-2.5 border rounded-lg text-sm w-full outline-none focus:ring-2 focus:ring-primary focus:border-transparent" />
-                                <input type="number" placeholder="Y Coordinate (Integer)" required value={newLoc.yCoordinate} onChange={e=>setNewLoc({...newLoc, yCoordinate: e.target.value})} className="p-2.5 border rounded-lg text-sm w-full outline-none focus:ring-2 focus:ring-primary focus:border-transparent" />
-                                <button type="submit" className="bg-accent text-white py-2.5 px-4 rounded-lg font-bold text-sm hover:bg-opacity-90 transition-all shadow-md shadow-red-100">
-                                    Save Location Record
+            {/* 1. ROOMS TABLE */}
+            {activeTab === 'rooms' && (
+              <div style={{ overflowX: 'auto' }}>
+                {locations.length === 0 ? (
+                  <div style={{ border: `0.5px solid ${T[100]}`, padding: '40px', textAlign: 'center', fontSize: '13px', color: T[800] }}>
+                    No rooms discovered in system database. Click Add Room to insert one.
+                  </div>
+                ) : (
+                  <table className="admin-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                    <thead>
+                      <tr style={{ backgroundColor: T[50], borderBottom: `0.5px solid ${T[300]}` }}>
+                        <th style={{ padding: '12px 16px', fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', color: T[800] }}>Room Name</th>
+                        <th style={{ padding: '12px 16px', fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', color: T[800] }}>Floor Plan</th>
+                        <th style={{ padding: '12px 16px', fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', color: T[800] }}>Coordinates</th>
+                        <th style={{ padding: '12px 16px', fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', color: T[800] }}>Current Status</th>
+                        <th style={{ padding: '12px 16px', fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', color: T[800], textAlign: 'right' }}>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {locations.map(room => {
+                        const status = getRoomStatus(room);
+                        return (
+                          <tr key={room.id} style={{ borderBottom: `0.5px solid ${T[100]}` }}>
+                            <td style={{ padding: '16px', fontSize: '13px', fontWeight: 500, color: T[900] }}>
+                              <div>{room.name}</div>
+                              {room.description && <div style={{ fontSize: '11px', fontWeight: 400, color: T[600], marginTop: '2px' }}>{room.description}</div>}
+                            </td>
+                            <td style={{ padding: '16px', fontSize: '13px', fontWeight: 400, color: T[900] }}>
+                              {room.floor ? `${room.floor.building?.name || 'Building'} - ${room.floor.floorName}` : 'No Floor Assigned'}
+                            </td>
+                            <td style={{ padding: '16px', fontSize: '13px', fontWeight: 400, color: T[800], fontFamily: 'monospace' }}>
+                              X: {room.xcoordinate ?? room.xCoordinate} · Y: {room.ycoordinate ?? room.yCoordinate}
+                            </td>
+                            <td style={{ padding: '16px' }}>
+                              {status === 'Available' ? (
+                                <span style={{ backgroundColor: T[50], color: T[600], border: `0.5px solid ${T[100]}`, padding: '3px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 500 }}>
+                                  Available
+                                </span>
+                              ) : (
+                                <span style={{ backgroundColor: '#fef2f2', color: '#b91c1c', border: '0.5px solid #fecaca', padding: '3px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 500 }}>
+                                  Occupied
+                                </span>
+                              )}
+                            </td>
+                            <td style={{ padding: '16px', textAlign: 'right' }}>
+                              <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                                <button
+                                  onClick={() => openEditRoom(room)}
+                                  style={{
+                                    backgroundColor: 'transparent',
+                                    border: `0.5px solid ${T[300]}`,
+                                    color: T[800],
+                                    borderRadius: '4px',
+                                    padding: '6px',
+                                    cursor: 'pointer',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                  }}
+                                  title="Edit Room"
+                                >
+                                  <Edit size={13} />
                                 </button>
                             </form>
                         </div>
