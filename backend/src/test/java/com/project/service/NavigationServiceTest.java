@@ -39,7 +39,7 @@ public class NavigationServiceTest {
 
     @BeforeEach
     public void setUp() {
-        Building building = new Building(1L, "Smart Campus Block", "Description");
+        Building building = new Building(1L, "Smart Campus Block", "Description", null, null, null);
         Floor floor1 = new Floor(1L, building, 1, "Floor 1", null);
         Floor floor2 = new Floor(2L, building, 2, "Floor 2", null);
 

@@ -38,6 +38,7 @@ const AdminDashboard = () => {
     destination: '',
   });
   const [sendingEmail, setSendingEmail] = useState(false);
+  const [generatedLink, setGeneratedLink] = useState('');
 
   // Data states
   const [locations, setLocations] = useState([]);
@@ -314,6 +315,7 @@ const AdminDashboard = () => {
       return;
     }
     setSendingEmail(true);
+    setGeneratedLink('');
     try {
       const payload = {
         email: emailForm.email,
@@ -322,9 +324,14 @@ const AdminDashboard = () => {
         start: emailForm.start ? parseInt(emailForm.start) : null,
       };
       
-      await api.post('/admin/send-navigation-link', payload);
-      showToast('Smart navigation link sent successfully!', 'success');
-      setEmailForm(prev => ({ ...prev, email: '', start: '', destination: '' }));
+      const res = await api.post('/admin/send-navigation-link', payload);
+      if (res.data && res.data.link) {
+        setGeneratedLink(res.data.link);
+        showToast('Link generated successfully! (Email send bypassed/failed)', 'success');
+      } else {
+        showToast('Smart navigation link sent successfully!', 'success');
+        setEmailForm(prev => ({ ...prev, email: '', start: '', destination: '' }));
+      }
     } catch (err) {
       console.error(err);
       const errMsg = err.response?.data?.error || 'Failed to send navigation link.';
@@ -935,6 +942,56 @@ const AdminDashboard = () => {
                   >
                     {sendingEmail ? 'Generating & Dispatching...' : 'Dispatch Smart Link'}
                   </button>
+
+                  {generatedLink && (
+                    <div style={{
+                      marginTop: '20px',
+                      padding: '16px',
+                      backgroundColor: T[50],
+                      border: `1px solid ${T[300]}`,
+                      borderRadius: '6px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '8px'
+                    }}>
+                      <span style={{ fontSize: '11px', fontWeight: 600, color: T[800], textTransform: 'uppercase' }}>Generated Navigation Link:</span>
+                      <input
+                        type="text"
+                        readOnly
+                        value={generatedLink}
+                        onClick={e => e.target.select()}
+                        style={{
+                          width: '100%',
+                          padding: '8px',
+                          fontSize: '12px',
+                          fontFamily: 'monospace',
+                          border: `1px solid ${T[300]}`,
+                          borderRadius: '4px',
+                          backgroundColor: '#ffffff'
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard.writeText(generatedLink);
+                          showToast('Copied to clipboard!', 'success');
+                        }}
+                        style={{
+                          backgroundColor: T[800],
+                          color: '#ffffff',
+                          border: 'none',
+                          borderRadius: '4px',
+                          padding: '6px 12px',
+                          fontSize: '12px',
+                          fontWeight: 500,
+                          cursor: 'pointer',
+                          alignSelf: 'flex-start'
+                        }}
+                      >
+                        Copy Link
+                      </button>
+                    </div>
+                  )}
                 </form>
               </div>
             )}

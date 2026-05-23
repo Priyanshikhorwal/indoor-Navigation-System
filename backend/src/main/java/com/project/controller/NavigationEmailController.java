@@ -31,11 +31,19 @@ public class NavigationEmailController {
             String navigationLink = "http://localhost:5173/smart-navigation?token=" + token;
 
             // Send Email
-            mailService.sendNavigationEmail(request.getEmail(), navigationLink);
-
-            return ResponseEntity.ok().body("{\"message\": \"Navigation link sent successfully to " + request.getEmail() + "\"}");
+            try {
+                mailService.sendNavigationEmail(request.getEmail(), navigationLink);
+                return ResponseEntity.ok().body("{\"message\": \"Navigation link sent successfully to " + request.getEmail() + "\"}");
+            } catch (Exception mailEx) {
+                System.out.println("\n==================================================");
+                System.out.println("SMTP SEND FAILED (Check application.properties), BUT SMART NAVIGATION LINK GENERATED:");
+                System.out.println(navigationLink);
+                System.out.println("==================================================\n");
+                
+                return ResponseEntity.ok().body("{\"message\": \"Link generated but email sending failed. Copy from server logs!\", \"link\": \"" + navigationLink + "\"}");
+            }
         } catch (Exception e) {
-            return ResponseEntity.internalServerError().body("{\"error\": \"Failed to send email: " + e.getMessage() + "\"}");
+            return ResponseEntity.internalServerError().body("{\"error\": \"Failed to process navigation request: " + e.getMessage() + "\"}");
         }
     }
 }
