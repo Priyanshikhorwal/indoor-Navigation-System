@@ -51,7 +51,7 @@ public class SecurityConfig {
                 )
                 .authorizeHttpRequests(auth -> auth
                         // Public auth endpoints — user login, registration, AND admin login
-                        .requestMatchers("/api/auth/login", "/api/auth/register", "/api/auth/admin/login").permitAll()
+                        .requestMatchers("/api/auth/login", "/api/auth/register", "/api/auth/admin/login", "/api/navigation/validate-token").permitAll()
                         // Public read-only endpoints (rooms, nodes, edges, floors, buildings, pathfinding)
                         .requestMatchers(HttpMethod.GET, "/api/rooms", "/api/rooms/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/nodes", "/api/nodes/**").permitAll()

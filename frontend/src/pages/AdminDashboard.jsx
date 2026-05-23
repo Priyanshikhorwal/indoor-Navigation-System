@@ -1,8 +1,8 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { useToast } from '../context/ToastContext';
-import { MapPin, Layers, Users, Plus, Trash2, Edit, LogOut, X, Check, Building } from 'lucide-react';
+import { MapPin, Layers, Users, Plus, Trash2, Edit, LogOut, X, Check, Building, Mail } from 'lucide-react';
 
 const T = {
   900: '#1a4a4a',
@@ -29,6 +29,15 @@ const AdminDashboard = () => {
 
   // Tabs: 'rooms' | 'floors' | 'users'
   const [activeTab, setActiveTab] = useState('rooms');
+
+  // Email Form State
+  const [emailForm, setEmailForm] = useState({
+    email: '',
+    buildingId: '',
+    start: '',
+    destination: '',
+  });
+  const [sendingEmail, setSendingEmail] = useState(false);
 
   // Data states
   const [locations, setLocations] = useState([]);
@@ -95,6 +104,10 @@ const AdminDashboard = () => {
       setLocations(roomsData);
       setFloors(floorRes.data);
       setBuildings(buildRes.data);
+
+      if (buildRes.data.length > 0) {
+        setEmailForm(prev => ({ ...prev, buildingId: buildRes.data[0].id.toString() }));
+      }
 
       // Load or initialize mock users in localStorage
       const savedUsers = localStorage.getItem('admin_users');
@@ -294,6 +307,33 @@ const AdminDashboard = () => {
     showToast('User deleted successfully.', 'success');
   };
 
+  const handleSendEmailLink = async (e) => {
+    e.preventDefault();
+    if (!emailForm.email || !emailForm.buildingId || !emailForm.destination) {
+      showToast('Please fill out all required fields.', 'error');
+      return;
+    }
+    setSendingEmail(true);
+    try {
+      const payload = {
+        email: emailForm.email,
+        buildingId: parseInt(emailForm.buildingId),
+        destination: parseInt(emailForm.destination),
+        start: emailForm.start ? parseInt(emailForm.start) : null,
+      };
+      
+      await api.post('/admin/send-navigation-link', payload);
+      showToast('Smart navigation link sent successfully!', 'success');
+      setEmailForm(prev => ({ ...prev, email: '', start: '', destination: '' }));
+    } catch (err) {
+      console.error(err);
+      const errMsg = err.response?.data?.error || 'Failed to send navigation link.';
+      showToast(errMsg, 'error');
+    } finally {
+      setSendingEmail(false);
+    }
+  };
+
   if (!token || role !== 'ROLE_ADMIN') {
     return null;
   }
@@ -403,6 +443,7 @@ const AdminDashboard = () => {
             { id: 'rooms', label: 'Rooms', icon: MapPin },
             { id: 'floors', label: 'Floors', icon: Layers },
             { id: 'users', label: 'Users', icon: Users },
+            { id: 'smart-nav', label: 'Send Link', icon: Mail },
           ].map(tab => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -509,12 +550,13 @@ const AdminDashboard = () => {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px', borderBottom: `0.5px solid ${T[100]}`, paddingBottom: '20px' }}>
               <div>
                 <h2 style={{ color: T[900], fontSize: '20px', fontWeight: 500, margin: 0, letterSpacing: '-0.02em' }}>
-                  {activeTab === 'rooms' ? 'Rooms Directory' : activeTab === 'floors' ? 'Building Floors' : 'Administrators'}
+                  {activeTab === 'rooms' ? 'Rooms Directory' : activeTab === 'floors' ? 'Building Floors' : activeTab === 'users' ? 'Administrators' : 'Send Smart Navigation'}
                 </h2>
                 <p style={{ color: T[800], fontSize: '13px', fontWeight: 400, marginTop: '4px', margin: 0 }}>
                   {activeTab === 'rooms' ? 'Create, modify coordinates, and manage live availability statuses of campus rooms.'
                     : activeTab === 'floors' ? 'Configure structures, building links, and map floor indices.'
-                    : 'Manage role authorizations and admin account emails.'}
+                    : activeTab === 'users' ? 'Manage role authorizations and admin account emails.'
+                    : 'Dispatch secure temporal navigation links directly to user inbox.'}
                 </p>
               </div>
 
@@ -800,6 +842,100 @@ const AdminDashboard = () => {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            )}
+
+            {/* 4. SEND SMART LINK PANEL */}
+            {activeTab === 'smart-nav' && (
+              <div style={{ maxWidth: '500px', border: `0.5px solid ${T[100]}`, padding: '32px', borderRadius: '4px' }}>
+                <form onSubmit={handleSendEmailLink} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <label htmlFor="userNavEmail" style={{ fontSize: '11px', fontWeight: 500, color: T[800], textTransform: 'uppercase' }}>Recipient Email Address</label>
+                    <input
+                      id="userNavEmail"
+                      type="email"
+                      required
+                      value={emailForm.email}
+                      onChange={e => setEmailForm({ ...emailForm, email: e.target.value })}
+                      placeholder="user@example.com"
+                      style={{ border: `0.5px solid ${T[300]}`, borderRadius: '4px', padding: '10px 14px', fontSize: '13px', fontWeight: 400, outline: 'none' }}
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <label htmlFor="navBuilding" style={{ fontSize: '11px', fontWeight: 500, color: T[800], textTransform: 'uppercase' }}>Target Building</label>
+                    <select
+                      id="navBuilding"
+                      required
+                      value={emailForm.buildingId}
+                      onChange={e => setEmailForm({ ...emailForm, buildingId: e.target.value, start: '', destination: '' })}
+                      style={{ border: `0.5px solid ${T[300]}`, borderRadius: '4px', padding: '10px 14px', fontSize: '13px', fontWeight: 400, outline: 'none', backgroundColor: '#ffffff' }}
+                    >
+                      <option value="">Select Building...</option>
+                      {buildings.map(b => (
+                        <option key={b.id} value={b.id}>{b.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <label htmlFor="navStart" style={{ fontSize: '11px', fontWeight: 500, color: T[800], textTransform: 'uppercase' }}>Start Location (Optional)</label>
+                    <select
+                      id="navStart"
+                      value={emailForm.start}
+                      onChange={e => setEmailForm({ ...emailForm, start: e.target.value })}
+                      style={{ border: `0.5px solid ${T[300]}`, borderRadius: '4px', padding: '10px 14px', fontSize: '13px', fontWeight: 400, outline: 'none', backgroundColor: '#ffffff' }}
+                    >
+                      <option value="">Default Building Entrance Node</option>
+                      {locations
+                        .filter(loc => loc.floor?.building?.id === parseInt(emailForm.buildingId) && loc.nodeId !== null)
+                        .map(loc => (
+                          <option key={loc.id} value={loc.nodeId}>{loc.name} (Floor {loc.floor?.floorName})</option>
+                        ))
+                      }
+                    </select>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <label htmlFor="navDest" style={{ fontSize: '11px', fontWeight: 500, color: T[800], textTransform: 'uppercase' }}>Destination Location</label>
+                    <select
+                      id="navDest"
+                      required
+                      value={emailForm.destination}
+                      onChange={e => setEmailForm({ ...emailForm, destination: e.target.value })}
+                      style={{ border: `0.5px solid ${T[300]}`, borderRadius: '4px', padding: '10px 14px', fontSize: '13px', fontWeight: 400, outline: 'none', backgroundColor: '#ffffff' }}
+                    >
+                      <option value="">Select Destination Room...</option>
+                      {locations
+                        .filter(loc => loc.floor?.building?.id === parseInt(emailForm.buildingId) && loc.nodeId !== null)
+                        .map(loc => (
+                          <option key={loc.id} value={loc.nodeId}>{loc.name} (Floor {loc.floor?.floorName})</option>
+                        ))
+                      }
+                    </select>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={sendingEmail}
+                    style={{
+                      backgroundColor: T[600],
+                      color: '#ffffff',
+                      border: `0.5px solid ${T[800]}`,
+                      borderRadius: '4px',
+                      padding: '12px 24px',
+                      fontSize: '13px',
+                      fontWeight: 500,
+                      cursor: sendingEmail ? 'not-allowed' : 'pointer',
+                      opacity: sendingEmail ? 0.7 : 1,
+                      transition: 'background-color 0.15s',
+                    }}
+                    onMouseEnter={e => { if (!sendingEmail) e.currentTarget.style.backgroundColor = T[800]; }}
+                    onMouseLeave={e => { if (!sendingEmail) e.currentTarget.style.backgroundColor = T[600]; }}
+                  >
+                    {sendingEmail ? 'Generating & Dispatching...' : 'Dispatch Smart Link'}
+                  </button>
+                </form>
               </div>
             )}
 

@@ -188,6 +188,16 @@ public class DataInitializer implements CommandLineRunner {
         linkNodes(nodeMap, "Lift1Node", "Lift2Node", true);
 
         log.info("Seeded edges connection graph.");
+
+        // Set building coordinates and entrance node
+        building.setLatitude(22.752285);
+        building.setLongitude(75.895513);
+        Node entryNode = nodeMap.get("EntryExitNode");
+        if (entryNode != null) {
+            building.setEntranceNodeId(entryNode.getId());
+        }
+        buildingRepository.save(building);
+
         log.info("Database seeding completed successfully!");
     }
 
