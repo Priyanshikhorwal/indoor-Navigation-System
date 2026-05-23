@@ -65,6 +65,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/buildings", "/api/buildings/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/buildings", "/api/buildings/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/buildings", "/api/buildings/**").hasRole("ADMIN")
+                        // Admin-only email navigation endpoint
+                        .requestMatchers(HttpMethod.POST, "/api/admin/send-navigation-link").hasRole("ADMIN")
                         // Catch-all: everything else requires authentication
                         .requestMatchers("/api/**").authenticated()
                         // Allow static resources and SPA routing

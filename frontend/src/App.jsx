@@ -8,6 +8,7 @@ import Login from './pages/Login';
 import UserDashboard from './pages/UserDashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import ProtectedRoute from './components/ProtectedRoute';
+import SmartNavigation from './pages/SmartNavigation';
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
             <Route path="/navigate" element={<Navigation />} />
             <Route path="/login" element={<Login />} />
             <Route path="/admin-login" element={<Login initialTab="admin" />} />
+            <Route path="/smart-navigation" element={<SmartNavigation />} />
             <Route 
               path="/user-dashboard" 
               element={
