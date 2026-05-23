@@ -27,8 +27,8 @@ const UserDashboard = () => {
         setLoading(true);
         setDashboardError('');
         try {
-            // Load building locations from backend database
-            const response = await api.get('/locations');
+            // Load building rooms from backend database
+            const response = await api.get('/rooms');
             setLocations(response.data);
         } catch (err) {
             console.error('Failed to load database locations:', err);

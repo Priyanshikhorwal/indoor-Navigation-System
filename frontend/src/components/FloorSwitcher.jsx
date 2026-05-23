@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import api from '../api';
+import api from '../services/api';
 
 /**
  * FloorSwitcher component fetches floor list and allows user to switch floors.
