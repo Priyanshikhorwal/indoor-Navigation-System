@@ -1,18 +1,14 @@
 package com.project.config;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.project.entity.*;
 import com.project.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.CommandLineRunner;
-import org.springframework.core.io.ClassPathResource;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
-import java.io.InputStream;
 import java.util.*;
 
 @Component
@@ -24,168 +20,200 @@ public class DataInitializer implements CommandLineRunner {
     private final UserRepository userRepository;
     private final BuildingRepository buildingRepository;
     private final FloorRepository floorRepository;
-    private final LocationRepository locationRepository;
-    private final PathConnectionRepository pathConnectionRepository;
+    private final RoomRepository roomRepository;
+    private final NodeRepository nodeRepository;
+    private final EdgeRepository edgeRepository;
     private final PasswordEncoder passwordEncoder;
 
     @Override
     public void run(String... args) throws Exception {
         log.info("Checking if database needs to be seeded...");
 
-        boolean usersEmpty = userRepository.count() == 0;
-        boolean buildingsEmpty = buildingRepository.count() == 0;
+        // 1. Seed Users
+        if (userRepository.count() == 0) {
+            log.info("Seeding users...");
+            userRepository.save(new User(null, "admin@example.com", passwordEncoder.encode("adminpassword"), "ROLE_ADMIN"));
+            userRepository.save(new User(null, "user@example.com", passwordEncoder.encode("userpassword"), "ROLE_USER"));
+            log.info("Created users.");
+        }
 
-        if (!usersEmpty && !buildingsEmpty) {
-            log.info("Database already contains users and buildings. Skipping seeding.");
+        // Check if navigation data is already seeded
+        if (floorRepository.count() > 0 && roomRepository.count() > 0 && nodeRepository.count() > 0) {
+            log.info("Database already contains rooms and nodes. Skipping navigation data seeding.");
             return;
         }
 
-        log.info("Seeding database with sample data (usersEmpty={}, buildingsEmpty={})...", usersEmpty, buildingsEmpty);
+        log.info("Seeding building navigation blueprint database...");
+
+        // 2. Seed Single Building
+        Building building = new Building();
+        building.setName("Smart Campus Block");
+        building.setDescription("Central College Campus Academic Block");
+        building = buildingRepository.save(building);
+
+        // 3. Seed Floors (Ground, 1st, 2nd)
+        Floor groundFloor = floorRepository.save(new Floor(null, building, 0, "Ground Floor", "/uploads/ground_floor.svg"));
+        Floor firstFloor = floorRepository.save(new Floor(null, building, 1, "First Floor", "/uploads/first_floor.svg"));
+        Floor secondFloor = floorRepository.save(new Floor(null, building, 2, "Second Floor", "/uploads/second_floor.svg"));
+
+        log.info("Seeded floors: Ground Floor, First Floor, Second Floor");
+
+        // 4. Seed Rooms
+        Map<String, Room> roomMap = new HashMap<>();
+
+        // Ground Floor rooms
+        roomMap.put("Reception", roomRepository.save(new Room(null, "Reception", "Visitor check-in & assistance desk", "ROOM", groundFloor)));
+        roomMap.put("Admin Office", roomRepository.save(new Room(null, "Admin Office", "Administration & faculty office", "OFFICE", groundFloor)));
+        roomMap.put("Room G101", roomRepository.save(new Room(null, "Room G101", "Ground floor classroom G101", "ROOM", groundFloor)));
+        roomMap.put("Room G102", roomRepository.save(new Room(null, "Room G102", "Ground floor classroom G102", "ROOM", groundFloor)));
+        roomMap.put("Stairs G", roomRepository.save(new Room(null, "Stairs G", "Ground floor stairwell access", "STAIRS", groundFloor)));
+        roomMap.put("Lift G", roomRepository.save(new Room(null, "Lift G", "Ground floor elevator cabin", "LIFT", groundFloor)));
+        roomMap.put("Entry/Exit", roomRepository.save(new Room(null, "Entry/Exit", "Building main entrance and exit", "ENTRY_EXIT", groundFloor)));
+        roomMap.put("Corridor G", roomRepository.save(new Room(null, "Corridor G", "Ground floor main access corridor", "CORRIDOR", groundFloor)));
+
+        // First Floor rooms
+        roomMap.put("Classroom 101", roomRepository.save(new Room(null, "Classroom 101", "First floor lecture classroom 101", "ROOM", firstFloor)));
+        roomMap.put("Classroom 102", roomRepository.save(new Room(null, "Classroom 102", "First floor lecture classroom 102", "ROOM", firstFloor)));
+        roomMap.put("Lab 1", roomRepository.save(new Room(null, "Lab 1", "First floor computer engineering lab 1", "LAB", firstFloor)));
+        roomMap.put("Lab 2", roomRepository.save(new Room(null, "Lab 2", "First floor physics & electronics lab 2", "LAB", firstFloor)));
+        roomMap.put("Faculty Room", roomRepository.save(new Room(null, "Faculty Room", "Faculty workspace and cabins", "OFFICE", firstFloor)));
+        roomMap.put("Stairs 1", roomRepository.save(new Room(null, "Stairs 1", "First floor stairwell access", "STAIRS", firstFloor)));
+        roomMap.put("Lift 1", roomRepository.save(new Room(null, "Lift 1", "First floor elevator cabin", "LIFT", firstFloor)));
+        roomMap.put("Corridor 1", roomRepository.save(new Room(null, "Corridor 1", "First floor main access corridor", "CORRIDOR", firstFloor)));
+
+        // Second Floor rooms
+        roomMap.put("Library", roomRepository.save(new Room(null, "Library", "Main reference library & study hall", "ROOM", secondFloor)));
+        roomMap.put("Seminar Hall", roomRepository.save(new Room(null, "Seminar Hall", "Auditorium and presentation hall", "ROOM", secondFloor)));
+        roomMap.put("Server Room", roomRepository.save(new Room(null, "Server Room", "Main network server & IT room", "ROOM", secondFloor)));
+        roomMap.put("Research Lab", roomRepository.save(new Room(null, "Research Lab", "Advanced post-graduate research lab", "LAB", secondFloor)));
+        roomMap.put("Stairs 2", roomRepository.save(new Room(null, "Stairs 2", "Second floor stairwell access", "STAIRS", secondFloor)));
+        roomMap.put("Lift 2", roomRepository.save(new Room(null, "Lift 2", "Second floor elevator cabin", "LIFT", secondFloor)));
+        roomMap.put("Corridor 2", roomRepository.save(new Room(null, "Corridor 2", "Second floor main access corridor", "CORRIDOR", secondFloor)));
+
+        log.info("Seeded rooms directory.");
+
+        // 5. Seed Nodes (Coordinate points)
+        Map<String, Node> nodeMap = new HashMap<>();
+
+        // Helper to register node
+        registerNode(nodeMap, "ReceptionNode", 250, 120, groundFloor, roomMap.get("Reception"));
+        registerNode(nodeMap, "AdminOfficeNode", 550, 120, groundFloor, roomMap.get("Admin Office"));
+        registerNode(nodeMap, "RoomG101Node", 250, 380, groundFloor, roomMap.get("Room G101"));
+        registerNode(nodeMap, "RoomG102Node", 550, 380, groundFloor, roomMap.get("Room G102"));
+        registerNode(nodeMap, "StairsGNode", 100, 250, groundFloor, roomMap.get("Stairs G"));
+        registerNode(nodeMap, "LiftGNode", 700, 250, groundFloor, roomMap.get("Lift G"));
+        registerNode(nodeMap, "EntryExitNode", 400, 450, groundFloor, roomMap.get("Entry/Exit"));
+        registerNode(nodeMap, "CorridorGLeft", 250, 250, groundFloor, roomMap.get("Corridor G"));
+        registerNode(nodeMap, "CorridorGCenter", 400, 250, groundFloor, roomMap.get("Corridor G"));
+        registerNode(nodeMap, "CorridorGRight", 550, 250, groundFloor, roomMap.get("Corridor G"));
+
+        // First Floor Nodes
+        registerNode(nodeMap, "Classroom101Node", 200, 120, firstFloor, roomMap.get("Classroom 101"));
+        registerNode(nodeMap, "Classroom102Node", 400, 120, firstFloor, roomMap.get("Classroom 102"));
+        registerNode(nodeMap, "Lab1Node", 600, 120, firstFloor, roomMap.get("Lab 1"));
+        registerNode(nodeMap, "Lab2Node", 250, 380, firstFloor, roomMap.get("Lab 2"));
+        registerNode(nodeMap, "FacultyRoomNode", 550, 380, firstFloor, roomMap.get("Faculty Room"));
+        registerNode(nodeMap, "Stairs1Node", 100, 250, firstFloor, roomMap.get("Stairs 1"));
+        registerNode(nodeMap, "Lift1Node", 700, 250, firstFloor, roomMap.get("Lift 1"));
+        registerNode(nodeMap, "Corridor1Left", 250, 250, firstFloor, roomMap.get("Corridor 1"));
+        registerNode(nodeMap, "Corridor1Center", 400, 250, firstFloor, roomMap.get("Corridor 1"));
+        registerNode(nodeMap, "Corridor1Right", 550, 250, firstFloor, roomMap.get("Corridor 1"));
+
+        // Second Floor Nodes
+        registerNode(nodeMap, "LibraryNode", 250, 120, secondFloor, roomMap.get("Library"));
+        registerNode(nodeMap, "SeminarHallNode", 550, 120, secondFloor, roomMap.get("Seminar Hall"));
+        registerNode(nodeMap, "ServerRoomNode", 250, 380, secondFloor, roomMap.get("Server Room"));
+        registerNode(nodeMap, "ResearchLabNode", 550, 380, secondFloor, roomMap.get("Research Lab"));
+        registerNode(nodeMap, "Stairs2Node", 100, 250, secondFloor, roomMap.get("Stairs 2"));
+        registerNode(nodeMap, "Lift2Node", 700, 250, secondFloor, roomMap.get("Lift 2"));
+        registerNode(nodeMap, "Corridor2Left", 250, 250, secondFloor, roomMap.get("Corridor 2"));
+        registerNode(nodeMap, "Corridor2Center", 400, 250, secondFloor, roomMap.get("Corridor 2"));
+        registerNode(nodeMap, "Corridor2Right", 550, 250, secondFloor, roomMap.get("Corridor 2"));
+
+        log.info("Seeded node coordinates.");
+
+        // 6. Seed Edges (Path connections)
         
-        ObjectMapper mapper = new ObjectMapper();
-        ClassPathResource resource = new ClassPathResource("sample-data.json");
-        
-        try (InputStream inputStream = resource.getInputStream()) {
-            Map<String, Object> data = mapper.readValue(inputStream, new TypeReference<Map<String, Object>>() {});
-            
-            // 1. Seed Users
-            if (usersEmpty) {
-                List<Map<String, String>> jsonUsers = (List<Map<String, String>>) data.get("users");
-                for (Map<String, String> u : jsonUsers) {
-                    User user = User.builder()
-                            .email(u.get("email"))
-                            .password(passwordEncoder.encode(u.get("password")))
-                            .role(u.get("role"))
-                            .build();
-                    userRepository.save(user);
-                    log.info("Created user: {}", user.getEmail());
-                }
-            } else {
-                log.info("Users already exist. Skipping user seeding.");
-            }
+        // Ground Floor Connections
+        linkNodes(nodeMap, "ReceptionNode", "CorridorGLeft", true);
+        linkNodes(nodeMap, "AdminOfficeNode", "CorridorGRight", true);
+        linkNodes(nodeMap, "RoomG101Node", "CorridorGLeft", true);
+        linkNodes(nodeMap, "RoomG102Node", "CorridorGRight", true);
+        linkNodes(nodeMap, "StairsGNode", "CorridorGLeft", true);
+        linkNodes(nodeMap, "LiftGNode", "CorridorGRight", true);
+        linkNodes(nodeMap, "EntryExitNode", "CorridorGCenter", true);
+        linkNodes(nodeMap, "CorridorGLeft", "CorridorGCenter", true);
+        linkNodes(nodeMap, "CorridorGCenter", "CorridorGRight", true);
 
-            // 2. Seed Navigation Data
-            if (buildingsEmpty) {
-                // 2. Seed Buildings
-                Map<String, Building> buildingMap = new HashMap<>();
-                List<Map<String, String>> jsonBuildings = (List<Map<String, String>>) data.get("buildings");
-                for (Map<String, String> b : jsonBuildings) {
-                    Building building = new Building();
-                    building.setName(b.get("name"));
-                    building.setDescription(b.get("description"));
-                    building = buildingRepository.save(building);
-                    buildingMap.put(building.getName(), building);
-                    log.info("Created building: {}", building.getName());
-                }
+        // First Floor Connections
+        linkNodes(nodeMap, "Classroom101Node", "Corridor1Left", true);
+        linkNodes(nodeMap, "Classroom102Node", "Corridor1Center", true);
+        linkNodes(nodeMap, "Lab1Node", "Corridor1Right", true);
+        linkNodes(nodeMap, "Lab2Node", "Corridor1Left", true);
+        linkNodes(nodeMap, "FacultyRoomNode", "Corridor1Right", true);
+        linkNodes(nodeMap, "Stairs1Node", "Corridor1Left", true);
+        linkNodes(nodeMap, "Lift1Node", "Corridor1Right", true);
+        linkNodes(nodeMap, "Corridor1Left", "Corridor1Center", true);
+        linkNodes(nodeMap, "Corridor1Center", "Corridor1Right", true);
 
-                // 3. Seed Floors
-                Map<String, Floor> floorMap = new HashMap<>();
-                List<Map<String, Object>> jsonFloors = (List<Map<String, Object>>) data.get("floors");
-                for (Map<String, Object> f : jsonFloors) {
-                    String buildingName = (String) f.get("buildingName");
-                    Building building = buildingMap.get(buildingName);
-                    if (building == null) {
-                        log.error("Building not found for name: {}", buildingName);
-                        continue;
-                    }
-                    
-                    Floor floor = new Floor();
-                    floor.setBuilding(building);
-                    floor.setFloorNumber((Integer) f.get("floorNumber"));
-                    floor.setFloorName((String) f.get("floorName"));
-                    floor.setMapImageUrl((String) f.get("mapImageUrl"));
-                    floor = floorRepository.save(floor);
-                    
-                    // Key format: buildingName + "_" + floorNumber
-                    String key = buildingName + "_" + floor.getFloorNumber();
-                    floorMap.put(key, floor);
-                    log.info("Created floor: {} under building: {}", floor.getFloorName(), buildingName);
-                }
+        // Second Floor Connections
+        linkNodes(nodeMap, "LibraryNode", "Corridor2Left", true);
+        linkNodes(nodeMap, "SeminarHallNode", "Corridor2Right", true);
+        linkNodes(nodeMap, "ServerRoomNode", "Corridor2Left", true);
+        linkNodes(nodeMap, "ResearchLabNode", "Corridor2Right", true);
+        linkNodes(nodeMap, "Stairs2Node", "Corridor2Left", true);
+        linkNodes(nodeMap, "Lift2Node", "Corridor2Right", true);
+        linkNodes(nodeMap, "Corridor2Left", "Corridor2Center", true);
+        linkNodes(nodeMap, "Corridor2Center", "Corridor2Right", true);
 
-                // 4. Seed Locations
-                Map<String, Location> locationMap = new HashMap<>();
-                List<Map<String, Object>> jsonLocations = (List<Map<String, Object>>) data.get("locations");
-                for (Map<String, Object> l : jsonLocations) {
-                    String buildingName = (String) l.get("buildingName");
-                    Integer floorNumber = (Integer) l.get("floorNumber");
-                    String floorKey = buildingName + "_" + floorNumber;
-                    Floor floor = floorMap.get(floorKey);
-                    if (floor == null) {
-                        log.error("Floor not found for key: {}", floorKey);
-                        continue;
-                    }
+        // Inter-floor Connections
+        // Stairs are not wheelchair-accessible
+        linkNodes(nodeMap, "StairsGNode", "Stairs1Node", false);
+        linkNodes(nodeMap, "Stairs1Node", "Stairs2Node", false);
+        // Lifts are wheelchair-accessible
+        linkNodes(nodeMap, "LiftGNode", "Lift1Node", true);
+        linkNodes(nodeMap, "Lift1Node", "Lift2Node", true);
 
-                    Location location = new Location();
-                    location.setName((String) l.get("name"));
-                    location.setDescription((String) l.get("description"));
-                    location.setXCoordinate((Integer) l.get("xCoordinate"));
-                    location.setYCoordinate((Integer) l.get("yCoordinate"));
-                    location.setFloor(floor);
-                    location.setType((String) l.get("type"));
-                    location = locationRepository.save(location);
-                    locationMap.put(location.getName(), location);
-                    log.info("Created location: {}", location.getName());
-                }
+        log.info("Seeded edges connection graph.");
+        log.info("Database seeding completed successfully!");
+    }
 
-                // 5. Seed Path Connections
-                List<Map<String, Object>> jsonConnections = (List<Map<String, Object>>) data.get("connections");
-                for (Map<String, Object> c : jsonConnections) {
-                    String srcName = (String) c.get("sourceName");
-                    String destName = (String) c.get("destinationName");
-                    Location source = locationMap.get(srcName);
-                    Location destination = locationMap.get(destName);
-                    
-                    if (source == null || destination == null) {
-                        log.error("Could not find locations for connection between '{}' and '{}'", srcName, destName);
-                        continue;
-                    }
+    private void registerNode(Map<String, Node> map, String key, int x, int y, Floor floor, Room room) {
+        Node node = new Node();
+        node.setXCoordinate(x);
+        node.setYCoordinate(y);
+        node.setFloor(floor);
+        node.setRoom(room);
+        node = nodeRepository.save(node);
+        map.put(key, node);
+    }
 
-                    PathConnection pc = new PathConnection();
-                    pc.setSourceLocation(source);
-                    pc.setDestinationLocation(destination);
-                    
-                    Double distance = null;
-                    if (c.containsKey("distance") && c.get("distance") != null) {
-                        Object distVal = c.get("distance");
-                        if (distVal instanceof Number) {
-                            distance = ((Number) distVal).doubleValue();
-                        }
-                    }
-                    if (distance == null) {
-                        // Calculate Euclidean distance automatically
-                        distance = Math.sqrt(Math.pow(source.getXCoordinate() - destination.getXCoordinate(), 2) +
-                                             Math.pow(source.getYCoordinate() - destination.getYCoordinate(), 2));
-                    }
-                    pc.setDistance(distance);
-                    
-                    if (c.containsKey("isAccessible")) {
-                        pc.setIsAccessible((Boolean) c.get("isAccessible"));
-                    } else {
-                        pc.setIsAccessible(true);
-                    }
-                    
-                    if (c.containsKey("isBidirectional")) {
-                        pc.setIsBidirectional((Boolean) c.get("isBidirectional"));
-                    } else {
-                        pc.setIsBidirectional(true);
-                    }
-                    
-                    if (c.containsKey("directionType")) {
-                        pc.setDirectionType((String) c.get("directionType"));
-                    } else {
-                        pc.setDirectionType("BOTH");
-                    }
-                    
-                    pathConnectionRepository.save(pc);
-                    log.info("Created connection between '{}' and '{}' with distance {}", srcName, destName, distance);
-                }
-                log.info("Database seeding completed successfully!");
-            } else {
-                log.info("Buildings already exist. Skipping navigation data seeding.");
-            }
-        } catch (Exception e) {
-            log.error("Error occurred while seeding database", e);
-            throw e;
+    private void linkNodes(Map<String, Node> nodeMap, String srcKey, String destKey, boolean isAccessible) {
+        Node srcNode = nodeMap.get(srcKey);
+        Node destNode = nodeMap.get(destKey);
+
+        if (srcNode == null || destNode == null) {
+            log.error("Could not find nodes for edge connection: {} <-> {}", srcKey, destKey);
+            return;
         }
+
+        Edge edge = new Edge();
+        edge.setSourceNode(srcNode);
+        edge.setDestinationNode(destNode);
+        edge.setIsAccessible(isAccessible);
+        edge.setIsBidirectional(true);
+
+        // Calculate Euclidean distance weight
+        double dx = srcNode.getXCoordinate() - destNode.getXCoordinate();
+        double dy = srcNode.getYCoordinate() - destNode.getYCoordinate();
+        double dz = 0.0;
+        
+        // Add vertical traversal cost if connecting different floors (e.g. lift, stairs)
+        if (!srcNode.getFloor().getId().equals(destNode.getFloor().getId())) {
+            dz = 150.0 * Math.abs(srcNode.getFloor().getFloorNumber() - destNode.getFloor().getFloorNumber());
+        }
+        
+        edge.setDistance(Math.sqrt(dx * dx + dy * dy + dz * dz));
+        edgeRepository.save(edge);
     }
 }

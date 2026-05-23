@@ -27,7 +27,6 @@ public class FloorController {
 
     private final FloorRepository floorRepository;
     private final BuildingRepository buildingRepository;
-    private final com.project.service.SvgFloorplanParserService svgFloorplanParserService;
     
     private final String UPLOAD_DIR = "uploads/";
 
@@ -99,12 +98,6 @@ public class FloorController {
             
             floor.setMapImageUrl("/uploads/" + uniqueFileName);
             floorRepository.save(floor);
-            
-            // If the file is an SVG, automatically generate the map graph
-            if (fileName.toLowerCase().endsWith(".svg")) {
-                svgFloorplanParserService.parseSvgAndGenerateGraph(filePath, floor);
-            }
-            
             return ResponseEntity.ok(floor);
         } catch (IOException e) {
             return ResponseEntity.internalServerError().build();

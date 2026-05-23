@@ -33,4 +33,5 @@ public class Floor {
 
     @Column(name = "map_image_url")
     private String mapImageUrl;
+
 }

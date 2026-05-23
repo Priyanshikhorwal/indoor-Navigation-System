@@ -27,6 +27,21 @@
         <javacv.version>1.5.9</javacv.version>
     </properties>
 
+    <repositories>
+        <repository>
+            <id>openkm</id>
+            <url>https://maven.openkm.com/</url>
+        </repository>
+        <repository>
+            <id>logicaldoc</id>
+            <url>https://repo.logicaldoc.com/maven/</url>
+        </repository>
+        <repository>
+            <id>logicaldoc-sf</id>
+            <url>https://logicaldoc.sourceforge.net/maven/</url>
+        </repository>
+    </repositories>
+
     <dependencies>
 
         <!-- ===== Spring Boot Starters ===== -->
@@ -85,7 +100,7 @@
 
                 <!-- ===== CAD / DXF Parsing ===== -->
         <dependency>
-            <groupId>net.sf.kabeja</groupId>
+            <groupId>org.kabeja</groupId>
             <artifactId>kabeja</artifactId>
             <version>0.4</version>
         </dependency>
