@@ -1,15 +1,21 @@
 package com.project.service;
 
-import com.project.entity.Location;
-import com.project.entity.PathConnection;
+import com.project.entity.Node;
+import com.project.entity.Edge;
+import com.project.entity.Room;
 import com.project.dto.NavigationResponseDto;
 import com.project.dto.NavigationStepDto;
-import com.project.repository.LocationRepository;
-import com.project.repository.PathConnectionRepository;
+import com.project.repository.NodeRepository;
+import com.project.repository.EdgeRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.cache.annotation.Cacheable;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+
+import com.project.entity.RouteCache;
+import com.project.repository.RouteCacheRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.JsonProcessingException;
 
 import java.util.*;
 
@@ -17,73 +23,61 @@ import java.util.*;
 @RequiredArgsConstructor
 public class NavigationService {
 
-    private final LocationRepository locationRepository;
-    private final PathConnectionRepository pathConnectionRepository;
+    private final NodeRepository nodeRepository;
+    private final EdgeRepository edgeRepository;
+    private final RouteCacheRepository routeCacheRepository;
+    private final ObjectMapper objectMapper;
 
-    @Cacheable("graph")
-    public Map<Location, List<Edge>> getGraphAdjacencyList() {
-        List<PathConnection> allConnections = pathConnectionRepository.findAll();
-        Map<Location, List<Edge>> graph = new HashMap<>();
-        for (PathConnection pc : allConnections) {
-            graph.computeIfAbsent(pc.getSourceLocation(), k -> new ArrayList<>())
-                 .add(new Edge(pc.getDestinationLocation(), pc.getDistance(), pc.getIsAccessible(), pc.getDirectionType()));
+    public Map<Node, List<GraphEdge>> getGraphAdjacencyList() {
+        List<Edge> allEdges = edgeRepository.findAll();
+        Map<Node, List<GraphEdge>> graph = new HashMap<>();
+        for (Edge e : allEdges) {
+            graph.computeIfAbsent(e.getSourceNode(), k -> new ArrayList<>())
+                 .add(new GraphEdge(e.getDestinationNode(), e.getDistance(), e.getIsAccessible()));
                  
-            if (Boolean.TRUE.equals(pc.getIsBidirectional())) {
-                graph.computeIfAbsent(pc.getDestinationLocation(), k -> new ArrayList<>())
-                     .add(new Edge(pc.getSourceLocation(), pc.getDistance(), pc.getIsAccessible(), getReverseDirection(pc.getDirectionType())));
+            if (Boolean.TRUE.equals(e.getIsBidirectional())) {
+                graph.computeIfAbsent(e.getDestinationNode(), k -> new ArrayList<>())
+                     .add(new GraphEdge(e.getSourceNode(), e.getDistance(), e.getIsAccessible()));
             }
         }
         return graph;
     }
 
-    private String getReverseDirection(String direction) {
-        if (direction == null) return null;
-        if ("UP".equalsIgnoreCase(direction)) return "DOWN";
-        if ("DOWN".equalsIgnoreCase(direction)) return "UP";
-        return direction;
-    }
-
-    public List<Location> findShortestPathAStar(Long sourceId, Long destinationId, boolean wheelchairAccessible) {
-        Location source = locationRepository.findById(sourceId)
-                .orElseThrow(() -> new EntityNotFoundException("Source not found with id: " + sourceId));
-        Location destination = locationRepository.findById(destinationId)
-                .orElseThrow(() -> new EntityNotFoundException("Destination not found with id: " + destinationId));
-
-        Map<Location, List<Edge>> graph = getGraphAdjacencyList();
+    public List<Node> findShortestPathAStar(Node source, Node destination, boolean wheelchairAccessible) {
+        Map<Node, List<GraphEdge>> graph = getGraphAdjacencyList();
 
         // A* Algorithm
-        PriorityQueue<Node> openSet = new PriorityQueue<>(Comparator.comparingDouble(n -> n.fScore));
-        Map<Location, Location> cameFrom = new HashMap<>();
+        PriorityQueue<AStarNode> openSet = new PriorityQueue<>(Comparator.comparingDouble(n -> n.fScore));
+        Map<Node, Node> cameFrom = new HashMap<>();
         
-        Map<Location, Double> gScore = new HashMap<>();
+        Map<Node, Double> gScore = new HashMap<>();
         gScore.put(source, 0.0);
 
-        openSet.add(new Node(source, 0.0, heuristic(source, destination)));
+        openSet.add(new AStarNode(source, 0.0, heuristic(source, destination)));
 
         while (!openSet.isEmpty()) {
-            Node current = openSet.poll();
-            if (current.gScore > gScore.getOrDefault(current.location, Double.MAX_VALUE)) {
+            AStarNode current = openSet.poll();
+            if (current.gScore > gScore.getOrDefault(current.node, Double.MAX_VALUE)) {
                 continue;
             }
 
-            if (current.location.equals(destination)) {
-                return reconstructPath(cameFrom, current.location);
+            if (current.node.equals(destination)) {
+                return reconstructPath(cameFrom, current.node);
             }
 
-            for (Edge neighbor : graph.getOrDefault(current.location, Collections.emptyList())) {
-                if (wheelchairAccessible) {
-                    if (!neighbor.isAccessible || "STAIRS".equalsIgnoreCase(neighbor.location.getType())) {
-                        continue; // Skip stairs or inaccessible edges for wheelchair routing
-                    }
+            for (GraphEdge neighbor : graph.getOrDefault(current.node, Collections.emptyList())) {
+                if (wheelchairAccessible && !neighbor.isAccessible) {
+                    continue; // Skip inaccessible edges (like stairs) for wheelchair routing
                 }
-                double tentativeGScore = gScore.getOrDefault(current.location, Double.MAX_VALUE) + neighbor.weight;
+                
+                double tentativeGScore = gScore.getOrDefault(current.node, Double.MAX_VALUE) + neighbor.weight;
 
-                if (tentativeGScore < gScore.getOrDefault(neighbor.location, Double.MAX_VALUE)) {
-                    cameFrom.put(neighbor.location, current.location);
-                    gScore.put(neighbor.location, tentativeGScore);
-                    double fScore = tentativeGScore + heuristic(neighbor.location, destination);
+                if (tentativeGScore < gScore.getOrDefault(neighbor.targetNode, Double.MAX_VALUE)) {
+                    cameFrom.put(neighbor.targetNode, current.node);
+                    gScore.put(neighbor.targetNode, tentativeGScore);
+                    double fScore = tentativeGScore + heuristic(neighbor.targetNode, destination);
                     
-                    openSet.add(new Node(neighbor.location, tentativeGScore, fScore));
+                    openSet.add(new AStarNode(neighbor.targetNode, tentativeGScore, fScore));
                 }
             }
         }
@@ -91,7 +85,7 @@ public class NavigationService {
         return Collections.emptyList(); // Path not found
     }
 
-    private double heuristic(Location a, Location b) {
+    private double heuristic(Node a, Node b) {
         double dx = a.getXCoordinate() - b.getXCoordinate();
         double dy = a.getYCoordinate() - b.getYCoordinate();
         
@@ -103,7 +97,26 @@ public class NavigationService {
     }
 
     public NavigationResponseDto getNavigationRoute(Long sourceId, Long destinationId, boolean wheelchairAccessible) {
-        List<Location> path = findShortestPathAStar(sourceId, destinationId, wheelchairAccessible);
+        // Clear route cache if entities modified, or just try fetching
+        Optional<RouteCache> cached = routeCacheRepository.findBySourceIdAndDestinationId(sourceId, destinationId);
+        if (cached.isPresent() && cached.get().getCachedRoute() != null && !wheelchairAccessible) {
+            try {
+                return objectMapper.readValue(cached.get().getCachedRoute(), NavigationResponseDto.class);
+            } catch (JsonProcessingException e) {
+                // Recalculate if parse fails
+            }
+        }
+
+        // Resolve source and destination Rooms/Nodes
+        Node sourceNode = nodeRepository.findByRoomId(sourceId)
+                .orElseGet(() -> nodeRepository.findById(sourceId)
+                        .orElseThrow(() -> new EntityNotFoundException("Source location/room not found with id: " + sourceId)));
+        
+        Node destNode = nodeRepository.findByRoomId(destinationId)
+                .orElseGet(() -> nodeRepository.findById(destinationId)
+                        .orElseThrow(() -> new EntityNotFoundException("Destination location/room not found with id: " + destinationId)));
+
+        List<Node> path = findShortestPathAStar(sourceNode, destNode, wheelchairAccessible);
         if (path.isEmpty()) {
             return new NavigationResponseDto(Collections.emptyList(), Collections.emptyList(), 0.0);
         }
@@ -112,26 +125,28 @@ public class NavigationService {
         double totalDist = 0.0;
 
         // Step 1: Start point
-        Location start = path.get(0);
+        Node start = path.get(0);
         String startFloorName = start.getFloor() != null ? start.getFloor().getFloorName() : "Unknown Floor";
+        String startName = start.getRoom() != null ? start.getRoom().getName() : "Entrance Point";
         
         steps.add(new NavigationStepDto(
-            "Start at " + start.getName() + " on floor " + startFloorName,
+            "Start at " + startName + " on " + startFloorName,
             "WALK_STRAIGHT",
             0.0,
             startFloorName
         ));
 
         for (int i = 0; i < path.size() - 1; i++) {
-            Location curr = path.get(i);
-            Location next = path.get(i + 1);
+            Node curr = path.get(i);
+            Node next = path.get(i + 1);
 
             String currFloorName = curr.getFloor() != null ? curr.getFloor().getFloorName() : "Unknown Floor";
             String nextFloorName = next.getFloor() != null ? next.getFloor().getFloorName() : "Unknown Floor";
+            String nextName = next.getRoom() != null ? next.getRoom().getName() : "Corridor junction";
 
             double dx = next.getXCoordinate() - curr.getXCoordinate();
             double dy = next.getYCoordinate() - curr.getYCoordinate();
-            double legDist = Math.sqrt(dx * dx + dy * dy) * 0.5; // Scale: 1 unit = 0.5 meters
+            double legDist = Math.sqrt(dx * dx + dy * dy) * 0.1; // Scale: 1 unit = 0.1 meters
             totalDist += legDist;
 
             boolean floorChanged = !Objects.equals(
@@ -141,24 +156,26 @@ public class NavigationService {
             
             if (floorChanged) {
                 String action = "WALK_STRAIGHT";
-                String instruction = "Change floor from " + currFloorName + " to " + nextFloorName + " towards " + next.getName();
-                if ("ELEVATOR".equalsIgnoreCase(next.getType()) || "ELEVATOR".equalsIgnoreCase(curr.getType())) {
+                String instruction = "Change floor from " + currFloorName + " to " + nextFloorName + " towards " + nextName;
+                
+                String currType = curr.getRoom() != null ? curr.getRoom().getType() : "";
+                String nextType = next.getRoom() != null ? next.getRoom().getType() : "";
+                
+                if ("LIFT".equalsIgnoreCase(nextType) || "LIFT".equalsIgnoreCase(currType)) {
                     action = "TAKE_ELEVATOR";
-                    instruction = "Take elevator from " + currFloorName + " to " + nextFloorName + " and proceed to " + next.getName();
-                } else if ("STAIRS".equalsIgnoreCase(next.getType()) || "STAIRS".equalsIgnoreCase(curr.getType())) {
+                    instruction = "Take lift from " + currFloorName + " to " + nextFloorName + " and proceed to " + nextName;
+                } else if ("STAIRS".equalsIgnoreCase(nextType) || "STAIRS".equalsIgnoreCase(currType)) {
                     action = "TAKE_STAIRS";
-                    instruction = "Take stairs from " + currFloorName + " to " + nextFloorName + " and proceed to " + next.getName();
+                    instruction = "Take stairs from " + currFloorName + " to " + nextFloorName + " and proceed to " + nextName;
                 }
                 steps.add(new NavigationStepDto(instruction, action, legDist, nextFloorName));
             } else {
-                // If it is just a walk to the next location
-                String directionText = "Walk " + String.format("%.1f", legDist) + " meters to " + next.getName();
+                String directionText = "Walk " + String.format("%.1f", legDist) + " meters to " + nextName;
                 steps.add(new NavigationStepDto(directionText, "WALK_STRAIGHT", legDist, currFloorName));
 
-                // Determine if there is a turn at 'next' transitioning to the subsequent node
+                // Direction turns
                 if (i < path.size() - 2) {
-                    Location afterNext = path.get(i + 2);
-                    
+                    Node afterNext = path.get(i + 2);
                     boolean floorChangedNext = !Objects.equals(
                         next.getFloor() != null ? next.getFloor().getId() : null,
                         afterNext.getFloor() != null ? afterNext.getFloor().getId() : null
@@ -172,12 +189,14 @@ public class NavigationService {
                         while (diff > Math.PI) diff -= 2 * Math.PI;
                         double deg = Math.toDegrees(diff);
 
+                        String afterNextName = afterNext.getRoom() != null ? afterNext.getRoom().getName() : "next segment";
+
                         if (deg >= 25 && deg < 135) {
-                            steps.add(new NavigationStepDto("At " + next.getName() + ", turn right towards " + afterNext.getName(), "TURN_RIGHT", 0.0, nextFloorName));
+                            steps.add(new NavigationStepDto("At " + nextName + ", turn right towards " + afterNextName, "TURN_RIGHT", 0.0, nextFloorName));
                         } else if (deg <= -25 && deg > -135) {
-                            steps.add(new NavigationStepDto("At " + next.getName() + ", turn left towards " + afterNext.getName(), "TURN_LEFT", 0.0, nextFloorName));
+                            steps.add(new NavigationStepDto("At " + nextName + ", turn left towards " + afterNextName, "TURN_LEFT", 0.0, nextFloorName));
                         } else if (deg >= 135 || deg <= -135) {
-                            steps.add(new NavigationStepDto("At " + next.getName() + ", turn around towards " + afterNext.getName(), "TURN_RIGHT", 0.0, nextFloorName));
+                            steps.add(new NavigationStepDto("At " + nextName + ", turn around towards " + afterNextName, "TURN_RIGHT", 0.0, nextFloorName));
                         }
                     }
                 }
@@ -185,21 +204,47 @@ public class NavigationService {
         }
 
         // Arrive step
-        Location destination = path.get(path.size() - 1);
+        Node destination = path.get(path.size() - 1);
         String destFloorName = destination.getFloor() != null ? destination.getFloor().getFloorName() : "Unknown Floor";
+        String destName = destination.getRoom() != null ? destination.getRoom().getName() : "Destination";
         
         steps.add(new NavigationStepDto(
-            "Arrive at your destination: " + destination.getName(),
+            "Arrive at your destination: " + destName,
             "ARRIVE",
             0.0,
             destFloorName
         ));
 
-        return new NavigationResponseDto(path, steps, totalDist);
+        NavigationResponseDto responseDto = new NavigationResponseDto(path, steps, totalDist);
+        
+        // Save to DB Cache
+        if (!wheelchairAccessible) {
+            try {
+                RouteCache cacheEntry = cached.orElseGet(RouteCache::new);
+                cacheEntry.setSourceId(sourceId);
+                cacheEntry.setDestinationId(destinationId);
+                cacheEntry.setTotalDistance(totalDist);
+                cacheEntry.setEstimatedTime((int) (totalDist / 1.4)); // approx 1.4 m/s
+                
+                int floorTransitions = 0;
+                for (NavigationStepDto step : steps) {
+                    if ("TAKE_ELEVATOR".equals(step.getAction()) || "TAKE_STAIRS".equals(step.getAction())) {
+                        floorTransitions++;
+                    }
+                }
+                cacheEntry.setFloorTransitionCount(floorTransitions);
+                cacheEntry.setCachedRoute(objectMapper.writeValueAsString(responseDto));
+                routeCacheRepository.save(cacheEntry);
+            } catch (JsonProcessingException e) {
+                // Ignore cache write error
+            }
+        }
+        
+        return responseDto;
     }
 
-    private List<Location> reconstructPath(Map<Location, Location> cameFrom, Location current) {
-        List<Location> totalPath = new ArrayList<>();
+    private List<Node> reconstructPath(Map<Node, Node> cameFrom, Node current) {
+        List<Node> totalPath = new ArrayList<>();
         totalPath.add(current);
         while (cameFrom.containsKey(current)) {
             current = cameFrom.get(current);
@@ -208,26 +253,24 @@ public class NavigationService {
         return totalPath;
     }
 
-    private static class Edge {
-        Location location;
-        double weight;
-        boolean isAccessible;
-        String directionType;
+    public static class GraphEdge {
+        public Node targetNode;
+        public double weight;
+        public boolean isAccessible;
         
-        Edge(Location location, double weight, boolean isAccessible, String directionType) {
-            this.location = location;
+        public GraphEdge(Node targetNode, double weight, boolean isAccessible) {
+            this.targetNode = targetNode;
             this.weight = weight;
             this.isAccessible = isAccessible;
-            this.directionType = directionType;
         }
     }
 
-    private static class Node {
-        Location location;
+    private static class AStarNode {
+        Node node;
         double gScore;
         double fScore;
-        Node(Location location, double gScore, double fScore) {
-            this.location = location;
+        AStarNode(Node node, double gScore, double fScore) {
+            this.node = node;
             this.gScore = gScore;
             this.fScore = fScore;
         }

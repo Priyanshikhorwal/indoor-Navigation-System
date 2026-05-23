@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { useToast } from '../context/ToastContext';
@@ -75,14 +75,24 @@ const AdminDashboard = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [locRes, floorRes, buildRes] = await Promise.all([
-        api.get('/locations'),
+      const [roomsRes, nodesRes, floorRes, buildRes] = await Promise.all([
+        api.get('/rooms'),
+        api.get('/nodes'),
         api.get('/floors'),
         api.get('/buildings'),
       ]);
 
-      // Only locations of type ROOM
-      setLocations(locRes.data.filter(loc => loc.type === 'ROOM'));
+      const roomsData = roomsRes.data.map(room => {
+        const matchingNode = nodesRes.data.find(node => node.room && node.room.id === room.id);
+        return {
+          ...room,
+          xCoordinate: matchingNode ? matchingNode.xCoordinate : '',
+          yCoordinate: matchingNode ? matchingNode.yCoordinate : '',
+          nodeId: matchingNode ? matchingNode.id : null
+        };
+      });
+
+      setLocations(roomsData);
       setFloors(floorRes.data);
       setBuildings(buildRes.data);
 
@@ -147,8 +157,8 @@ const AdminDashboard = () => {
       floorId: room.floor?.id || '',
       status: getRoomStatus(room),
       description: room.description || '',
-      xCoordinate: room.xCoordinate || '1',
-      yCoordinate: room.yCoordinate || '1',
+      xCoordinate: room.xcoordinate ?? room.xCoordinate ?? '1',
+      yCoordinate: room.ycoordinate ?? room.yCoordinate ?? '1',
     });
     setIsModalOpen(true);
   };
@@ -156,22 +166,46 @@ const AdminDashboard = () => {
   const handleRoomSubmit = async (e) => {
     e.preventDefault();
     try {
-      const payload = {
+      const roomPayload = {
         name: roomForm.name,
         description: roomForm.description,
-        xCoordinate: parseInt(roomForm.xCoordinate),
-        yCoordinate: parseInt(roomForm.yCoordinate),
         type: 'ROOM',
         floor: roomForm.floorId ? { id: parseInt(roomForm.floorId) } : null,
       };
 
       if (modalMode === 'add') {
-        const res = await api.post('/locations', payload);
-        updateRoomStatus(res.data.id, roomForm.status);
+        const res = await api.post('/rooms', roomPayload);
+        const createdRoom = res.data;
+        updateRoomStatus(createdRoom.id, roomForm.status);
+
+        // Create matching Node coordinate mapping
+        const nodePayload = {
+          xCoordinate: parseInt(roomForm.xCoordinate),
+          yCoordinate: parseInt(roomForm.yCoordinate),
+          floor: roomForm.floorId ? { id: parseInt(roomForm.floorId) } : null,
+          room: { id: createdRoom.id }
+        };
+        await api.post('/nodes', nodePayload);
         showToast('Room added successfully!', 'success');
       } else {
-        await api.put(`/locations/${roomForm.id}`, { ...payload, id: roomForm.id });
+        const res = await api.put(`/rooms/${roomForm.id}`, { ...roomPayload, id: roomForm.id });
+        const updatedRoom = res.data;
         updateRoomStatus(roomForm.id, roomForm.status);
+
+        // Find existing nodeId to update
+        const currentRoom = locations.find(r => r.id === roomForm.id);
+        const nodePayload = {
+          xCoordinate: parseInt(roomForm.xCoordinate),
+          yCoordinate: parseInt(roomForm.yCoordinate),
+          floor: roomForm.floorId ? { id: parseInt(roomForm.floorId) } : null,
+          room: { id: updatedRoom.id }
+        };
+
+        if (currentRoom && currentRoom.nodeId) {
+          await api.put(`/nodes/${currentRoom.nodeId}`, { ...nodePayload, id: currentRoom.nodeId });
+        } else {
+          await api.post('/nodes', nodePayload);
+        }
         showToast('Room updated successfully!', 'success');
       }
       setIsModalOpen(false);
@@ -185,7 +219,11 @@ const AdminDashboard = () => {
   const handleDeleteRoom = async (id) => {
     if (!window.confirm('Are you sure you want to delete this room?')) return;
     try {
-      await api.delete(`/locations/${id}`);
+      const currentRoom = locations.find(r => r.id === id);
+      if (currentRoom && currentRoom.nodeId) {
+        await api.delete(`/nodes/${currentRoom.nodeId}`);
+      }
+      await api.delete(`/rooms/${id}`);
       localStorage.removeItem(`room_status_${id}`);
       showToast('Room deleted successfully.', 'success');
       fetchData();
@@ -333,7 +371,7 @@ const AdminDashboard = () => {
         }
       `}</style>
       
-      {/* ── SIDEBAR ── */}
+      {/* ΓöÇΓöÇ SIDEBAR ΓöÇΓöÇ */}
       <aside className="admin-sidebar" style={{
         width: '240px',
         backgroundColor: T[900],
@@ -454,7 +492,7 @@ const AdminDashboard = () => {
         </div>
       </aside>
 
-      {/* ── MAIN CONTENT AREA ── */}
+      {/* ΓöÇΓöÇ MAIN CONTENT AREA ΓöÇΓöÇ */}
       <main className="admin-main" style={{
         flexGrow: 1,
         backgroundColor: '#ffffff',
@@ -507,28 +545,30 @@ const AdminDashboard = () => {
                   </button>
                 )}
                 {activeTab === 'floors' && (
-                  <button
-                    onClick={() => { setModalMode('add'); setIsModalOpen(true); }}
-                    style={{
-                      backgroundColor: T[600],
-                      color: '#ffffff',
-                      border: `0.5px solid ${T[800]}`,
-                      borderRadius: '4px',
-                      padding: '8px 16px',
-                      fontSize: '13px',
-                      fontWeight: 500,
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      transition: 'background-color 0.15s',
-                    }}
-                    onMouseEnter={e => e.currentTarget.style.backgroundColor = T[800]}
-                    onMouseLeave={e => e.currentTarget.style.backgroundColor = T[600]}
-                  >
-                    <Plus size={15} />
-                    <span>Add Floor</span>
-                  </button>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                      onClick={() => { setModalMode('add'); setIsModalOpen(true); }}
+                      style={{
+                        backgroundColor: T[600],
+                        color: '#ffffff',
+                        border: `0.5px solid ${T[800]}`,
+                        borderRadius: '4px',
+                        padding: '8px 16px',
+                        fontSize: '13px',
+                        fontWeight: 500,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        transition: 'background-color 0.15s',
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.backgroundColor = T[800]}
+                      onMouseLeave={e => e.currentTarget.style.backgroundColor = T[600]}
+                    >
+                      <Plus size={15} />
+                      <span>Add Floor</span>
+                    </button>
+                  </div>
                 )}
                 {activeTab === 'users' && (
                   <button
@@ -590,7 +630,7 @@ const AdminDashboard = () => {
                               {room.floor ? `${room.floor.building?.name || 'Building'} - ${room.floor.floorName}` : 'No Floor Assigned'}
                             </td>
                             <td style={{ padding: '16px', fontSize: '13px', fontWeight: 400, color: T[800], fontFamily: 'monospace' }}>
-                              X: {room.xCoordinate} · Y: {room.yCoordinate}
+                              X: {room.xcoordinate ?? room.xCoordinate} ┬╖ Y: {room.ycoordinate ?? room.yCoordinate}
                             </td>
                             <td style={{ padding: '16px' }}>
                               {status === 'Available' ? (
@@ -767,7 +807,7 @@ const AdminDashboard = () => {
         )}
       </main>
 
-      {/* ── FLAT MODAL DRAWER ── */}
+      {/* ΓöÇΓöÇ FLAT MODAL DRAWER ΓöÇΓöÇ */}
       {isModalOpen && (
         <div style={{
           position: 'fixed',

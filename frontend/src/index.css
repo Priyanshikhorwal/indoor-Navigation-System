@@ -1,97 +1,16 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
-  html {
-    scroll-behavior: smooth;
-  }
   body {
-    font-family: 'Inter', system-ui, sans-serif;
-    font-weight: 400;
-    background-color: #eaf7f7;
-    color: #1a4a4a;
-    min-height: 100vh;
+    @apply bg-secondary text-primary font-sans;
   }
 }
 
-@layer components {
-  /* Flat button styles */
-  .btn-solid {
-    background-color: #5aadad;
-    color: #eaf7f7;
-    border: 0.5px solid #3d8b8b;
-    border-radius: 8px;
-    padding: 10px 22px;
-    font-weight: 500;
-    font-size: 0.875rem;
-    transition: background-color 0.2s ease, color 0.2s ease;
-    display: inline-block;
-    cursor: pointer;
-    text-decoration: none;
-  }
-  .btn-solid:hover {
-    background-color: #3d8b8b;
-  }
-
-  .btn-ghost {
-    background-color: transparent;
-    color: #eaf7f7;
-    border: 0.5px solid #8dd4d4;
-    border-radius: 8px;
-    padding: 10px 22px;
-    font-weight: 500;
-    font-size: 0.875rem;
-    transition: background-color 0.2s ease, color 0.2s ease;
-    display: inline-block;
-    cursor: pointer;
-    text-decoration: none;
-  }
-  .btn-ghost:hover {
-    background-color: rgba(93, 173, 173, 0.12);
-  }
-
-  .btn-teal-outline {
-    background-color: transparent;
-    color: #2a6b6b;
-    border: 0.5px solid #5aadad;
-    border-radius: 8px;
-    padding: 10px 22px;
-    font-weight: 500;
-    font-size: 0.875rem;
-    transition: background-color 0.2s ease, color 0.2s ease;
-    display: inline-block;
-    cursor: pointer;
-    text-decoration: none;
-  }
-  .btn-teal-outline:hover {
-    background-color: #c4eaea;
-    color: #1a4a4a;
-  }
-
-  .card-teal {
-    background-color: #ffffff;
-    border: 0.5px solid #c4eaea;
-    border-radius: 12px;
-    padding: 1.5rem;
-  }
-
-  .chip {
-    background-color: #eaf7f7;
-    border: 0.5px solid #c4eaea;
-    border-radius: 8px;
-    padding: 4px 14px;
-    font-size: 0.8rem;
-    font-weight: 500;
-    color: #2a6b6b;
-  }
-
-  /* Floor map grid */
-  .floor-cell {
-    width: 100%;
-    aspect-ratio: 1;
-    border-radius: 4px;
-  }
+.glass {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
 }

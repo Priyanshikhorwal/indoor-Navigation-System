@@ -37,9 +37,7 @@ public class FloorController {
     
     @GetMapping("/building/{buildingId}")
     public ResponseEntity<List<Floor>> getFloorsByBuilding(@PathVariable Long buildingId) {
-        Building building = buildingRepository.findById(buildingId)
-                .orElseThrow(() -> new EntityNotFoundException("Building not found"));
-        return ResponseEntity.ok(floorRepository.findByBuilding(building));
+        return ResponseEntity.ok(floorRepository.findByBuildingId(buildingId));
     }
 
     @GetMapping("/{id}")
@@ -100,7 +98,6 @@ public class FloorController {
             
             floor.setMapImageUrl("/uploads/" + uniqueFileName);
             floorRepository.save(floor);
-            
             return ResponseEntity.ok(floor);
         } catch (IOException e) {
             return ResponseEntity.internalServerError().build();

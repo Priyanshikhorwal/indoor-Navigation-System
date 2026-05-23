@@ -9,30 +9,27 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "path_connections")
-public class PathConnection {
+@Table(name = "edges")
+public class Edge {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne
-    @JoinColumn(name = "source_location_id", nullable = false)
-    private Location sourceLocation;
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "source_node_id", nullable = false)
+    private Node sourceNode;
 
-    @ManyToOne
-    @JoinColumn(name = "destination_location_id", nullable = false)
-    private Location destinationLocation;
-
-    @Column(nullable = false)
-    private Double distance;
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "destination_node_id", nullable = false)
+    private Node destinationNode;
 
     @Column(nullable = false)
+    private Double distance; // Euclidean weight or penalty
+
+    @Column(name = "is_accessible", nullable = false)
     private Boolean isAccessible = true;
 
     @Column(name = "is_bidirectional", nullable = false)
     private Boolean isBidirectional = true;
-
-    @Column(name = "direction_type")
-    private String directionType; // e.g., "BOTH", "ONE_WAY"
 }
