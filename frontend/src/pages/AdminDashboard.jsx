@@ -1,41 +1,34 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
-import Loader from '../components/Loader';
-import { Plus, Trash2, Edit, Compass, Database, Check, Copy, AlertCircle, Sparkles, MapPin } from 'lucide-react';
+import { useToast } from '../context/ToastContext';
+import { MapPin, Layers, Users, Plus, Trash2, Edit, LogOut, X, Check, Building } from 'lucide-react';
+
+const T = {
+  900: '#1a4a4a',
+  800: '#2a6b6b',
+  600: '#3d8b8b',
+  500: '#5aadad',
+  300: '#8dd4d4',
+  100: '#c4eaea',
+  50:  '#eaf7f7',
+};
 
 const AdminDashboard = () => {
-    const [locations, setLocations] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState('locations'); // 'locations' or 'connections'
-    const [showAddForm, setShowAddForm] = useState(false);
-    
-    // Add location form state
-    const [newLoc, setNewLoc] = useState({ name: '', description: '', xCoordinate: '', yCoordinate: '', floor: '' });
-    
-    // Edit modal state
-    const [editingLoc, setEditingLoc] = useState(null);
-    
-    // Search/filter state
-    const [searchTerm, setSearchTerm] = useState('');
-    const [floorFilter, setFloorFilter] = useState('');
-    
-    // Path Connection Seeding states
-    const [startNode, setStartNode] = useState(null);
-    const [endNode, setEndNode] = useState(null);
-    const [sqlCopySuccess, setSqlCopySuccess] = useState(false);
-    const [activeMapFloor, setActiveMapFloor] = useState('All');
-    
-    // Drag and Drop Mapping & Blueprint Overlay states
-    const [blueprintUrl, setBlueprintUrl] = useState('');
-    const [draggedNode, setDraggedNode] = useState(null);
-    const svgRef = useRef(null);
+  const navigate = useNavigate();
+  const { showToast } = useToast();
+  const token = localStorage.getItem('token');
+  const role = localStorage.getItem('role');
 
-    const [error, setError] = useState('');
-    const [success, setSuccess] = useState('');
+  // Protection Redirect
+  useEffect(() => {
+    if (!token || role !== 'ROLE_ADMIN') {
+      navigate('/admin/login');
+    }
+  }, [token, role, navigate]);
 
-    useEffect(() => {
-        fetchLocations();
-    }, []);
+  // Tabs: 'rooms' | 'floors' | 'users'
+  const [activeTab, setActiveTab] = useState('rooms');
 
   // Data states
   const [locations, setLocations] = useState([]);
@@ -281,78 +274,249 @@ const AdminDashboard = () => {
       email: userForm.email,
       role: userForm.role,
     };
+    const updated = [...users, newUser];
+    localStorage.setItem('admin_users', JSON.stringify(updated));
+    setUsers(updated);
+    showToast('User added successfully!', 'success');
+    setUserForm({ email: '', role: 'ROLE_USER' });
+    setIsModalOpen(false);
+  };
 
-    const handleAddLocation = async (e) => {
-        e.preventDefault();
-        try {
-            await api.post('/locations', newLoc);
-            setSuccess('Location added successfully!');
-            setNewLoc({ name: '', description: '', xCoordinate: '', yCoordinate: '', floor: '' });
-            setShowAddForm(false);
-            fetchLocations();
-            setTimeout(() => setSuccess(''), 3000);
-        } catch (err) {
-            setError('Failed to add location');
+  const handleDeleteUser = (id) => {
+    if (id === 1) {
+      showToast('Cannot delete default system administrator.', 'error');
+      return;
+    }
+    if (!window.confirm('Delete this user account?')) return;
+    const updated = users.filter(u => u.id !== id);
+    localStorage.setItem('admin_users', JSON.stringify(updated));
+    setUsers(updated);
+    showToast('User deleted successfully.', 'success');
+  };
+
+  if (!token || role !== 'ROLE_ADMIN') {
+    return null;
+  }
+
+  return (
+    <div className="admin-container" style={{
+      backgroundColor: '#ffffff',
+      minHeight: '100vh',
+      display: 'flex',
+      fontFamily: 'Inter, system-ui, sans-serif',
+    }}>
+      <style>{`
+        .admin-table {
+          min-width: 600px !important;
         }
-    };
-
-    const handleEditLocation = async (e) => {
-        e.preventDefault();
-        try {
-            await api.put(`/locations/${editingLoc.id}`, editingLoc);
-            setSuccess('Location updated successfully!');
-            setEditingLoc(null);
-            fetchLocations();
-            setTimeout(() => setSuccess(''), 3000);
-        } catch (err) {
-            setError('Failed to update location');
+        @media (max-width: 768px) {
+          .admin-container {
+            flex-direction: column !important;
+          }
+          .admin-sidebar {
+            width: 100% !important;
+            border-right: none !important;
+            border-bottom: 0.5px solid ${T[800]} !important;
+          }
+          .admin-sidebar > div:first-child {
+            padding: 16px 24px !important;
+          }
+          .admin-nav {
+            flex-direction: row !important;
+            flex-wrap: wrap !important;
+            padding: 12px 24px !important;
+            gap: 8px !important;
+          }
+          .admin-nav button {
+            width: auto !important;
+            padding: 8px 16px !important;
+            border-radius: 6px !important;
+          }
+          .admin-sidebar-footer {
+            flex-direction: row !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+            padding: 16px 24px !important;
+            border-top: 0.5px solid ${T[800]} !important;
+          }
+          .admin-sidebar-footer > div {
+            flex-direction: row !important;
+            gap: 8px !important;
+          }
+          .admin-sidebar-footer button {
+            width: auto !important;
+            padding: 6px 12px !important;
+            margin-top: 0 !important;
+          }
+          .admin-main {
+            padding: 24px !important;
+          }
         }
-    };
-
-    const handleDelete = async (id) => {
-        if(!window.confirm('Are you sure?')) return;
-        try {
-            await api.delete(`/locations/${id}`);
-            fetchLocations();
-        } catch (err) {
-            setError('Failed to delete. May have connected paths.');
+        @media (max-width: 375px) {
+          .admin-sidebar-footer {
+            flex-direction: column !important;
+            align-items: stretch !important;
+            gap: 12px !important;
+          }
+          .admin-sidebar-footer > div {
+            flex-direction: column !important;
+            gap: 2px !important;
+          }
+          .admin-main {
+            padding: 16px 12px !important;
+          }
+          .admin-main h2 {
+            font-size: 18px !important;
+          }
         }
-    };
+      `}</style>
+      
+      {/* ΓöÇΓöÇ SIDEBAR ΓöÇΓöÇ */}
+      <aside className="admin-sidebar" style={{
+        width: '240px',
+        backgroundColor: T[900],
+        borderRight: `0.5px solid ${T[800]}`,
+        display: 'flex',
+        flexDirection: 'column',
+        flexShrink: 0,
+      }}>
+        {/* Title */}
+        <div style={{
+          padding: '24px',
+          borderBottom: `0.5px solid ${T[800]}`,
+        }}>
+          <h1 style={{
+            color: '#ffffff',
+            fontSize: '15px',
+            fontWeight: 500,
+            letterSpacing: '0.04em',
+            margin: 0,
+            textTransform: 'uppercase',
+          }}>
+            Indoor Nav Console
+          </h1>
+        </div>
 
-    // Calculate distance for edge weight
-    const calculateDistance = (n1, n2) => {
-        if (!n1 || !n2) return 0;
-        const dx = n1.xCoordinate - n2.xCoordinate;
-        const dy = n1.yCoordinate - n2.yCoordinate;
-        return Math.sqrt(dx * dx + dy * dy).toFixed(2);
-    };
+        {/* Navigation links */}
+        <nav className="admin-nav" style={{ flexGrow: 1, padding: '24px 0', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          {[
+            { id: 'rooms', label: 'Rooms', icon: MapPin },
+            { id: 'floors', label: 'Floors', icon: Layers },
+            { id: 'users', label: 'Users', icon: Users },
+          ].map(tab => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => {
+                  setActiveTab(tab.id);
+                  setIsModalOpen(false);
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  width: '100%',
+                  padding: '12px 24px',
+                  backgroundColor: isActive ? T[800] : 'transparent',
+                  color: isActive ? T[50] : T[300],
+                  border: 'none',
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  transition: 'color 0.15s, background-color 0.15s',
+                }}
+                onMouseEnter={e => {
+                  if (!isActive) e.currentTarget.style.color = T[50];
+                }}
+                onMouseLeave={e => {
+                  if (!isActive) e.currentTarget.style.color = T[300];
+                }}
+              >
+                <Icon size={16} />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
+        </nav>
 
-    const handleMapNodeClick = (loc) => {
-        if (!startNode || (startNode && endNode)) {
-            setStartNode(loc);
-            setEndNode(null);
-        } else {
-            if (startNode.id === loc.id) {
-                setError('A path connection cannot connect a room to itself.');
-                setTimeout(() => setError(''), 3000);
-                return;
-            }
-            setEndNode(loc);
-        }
-    };
+        {/* Footer profile & logout */}
+        <div className="admin-sidebar-footer" style={{
+          padding: '24px',
+          borderTop: `0.5px solid ${T[800]}`,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '16px',
+        }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+            <span style={{ color: '#ffffff', fontSize: '12px', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              Administrator
+            </span>
+            <span style={{ color: T[300], fontSize: '11px', fontWeight: 400 }}>
+              {localStorage.getItem('email') || 'admin@example.com'}
+            </span>
+          </div>
 
-    const handleCopySql = (sqlText) => {
-        navigator.clipboard.writeText(sqlText);
-        setSqlCopySuccess(true);
-        setTimeout(() => setSqlCopySuccess(false), 2000);
-    };
+          <button
+            onClick={handleLogout}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              width: '100%',
+              backgroundColor: 'transparent',
+              border: `0.5px solid ${T[300]}`,
+              color: T[300],
+              borderRadius: '4px',
+              padding: '8px 12px',
+              fontSize: '12px',
+              fontWeight: 500,
+              cursor: 'pointer',
+              transition: 'color 0.15s, border-color 0.15s',
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.color = '#ffffff';
+              e.currentTarget.style.borderColor = '#ffffff';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.color = T[300];
+              e.currentTarget.style.borderColor = T[300];
+            }}
+          >
+            <LogOut size={13} />
+            <span>Sign Out</span>
+          </button>
+        </div>
+      </aside>
 
-    // Coordinate scale reversals for drag-and-drop mapper
-    const reverseScaleX = (rx) => {
-        const range = maxX - minX || 1;
-        const val = minX + ((rx - padding) / (svgWidth - 2 * padding)) * range;
-        return Math.round(val);
-    };
+      {/* ΓöÇΓöÇ MAIN CONTENT AREA ΓöÇΓöÇ */}
+      <main className="admin-main" style={{
+        flexGrow: 1,
+        backgroundColor: '#ffffff',
+        padding: '40px',
+        overflowY: 'auto',
+      }}>
+        {loading ? (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+            <span style={{ fontSize: '13px', color: T[800], fontWeight: 400 }}>Loading control console data...</span>
+          </div>
+        ) : (
+          <div>
+            {/* Header row */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px', borderBottom: `0.5px solid ${T[100]}`, paddingBottom: '20px' }}>
+              <div>
+                <h2 style={{ color: T[900], fontSize: '20px', fontWeight: 500, margin: 0, letterSpacing: '-0.02em' }}>
+                  {activeTab === 'rooms' ? 'Rooms Directory' : activeTab === 'floors' ? 'Building Floors' : 'Administrators'}
+                </h2>
+                <p style={{ color: T[800], fontSize: '13px', fontWeight: 400, marginTop: '4px', margin: 0 }}>
+                  {activeTab === 'rooms' ? 'Create, modify coordinates, and manage live availability statuses of campus rooms.'
+                    : activeTab === 'floors' ? 'Configure structures, building links, and map floor indices.'
+                    : 'Manage role authorizations and admin account emails.'}
+                </p>
+              </div>
 
               {/* Add Trigger Buttons */}
               <div>
@@ -432,6 +596,8 @@ const AdminDashboard = () => {
                 )}
               </div>
             </div>
+
+            {/* TAB PANELS */}
             
             {/* 1. ROOMS TABLE */}
             {activeTab === 'rooms' && (
@@ -464,7 +630,7 @@ const AdminDashboard = () => {
                               {room.floor ? `${room.floor.building?.name || 'Building'} - ${room.floor.floorName}` : 'No Floor Assigned'}
                             </td>
                             <td style={{ padding: '16px', fontSize: '13px', fontWeight: 400, color: T[800], fontFamily: 'monospace' }}>
-                              X: {room.xcoordinate ?? room.xCoordinate} · Y: {room.ycoordinate ?? room.yCoordinate}
+                              X: {room.xcoordinate ?? room.xCoordinate} ┬╖ Y: {room.ycoordinate ?? room.yCoordinate}
                             </td>
                             <td style={{ padding: '16px' }}>
                               {status === 'Available' ? (
@@ -496,361 +662,405 @@ const AdminDashboard = () => {
                                 >
                                   <Edit size={13} />
                                 </button>
-                            </form>
-                        </div>
-                    )}
-
-                    {/* Filter and Location Table */}
-                    <div className="bg-white p-6 rounded-xl shadow border border-gray-100">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 border-b border-gray-100 pb-4">
-                            <h2 className="text-xl font-bold text-primary">Manage Locations</h2>
-                            <div className="flex gap-2 w-full sm:w-auto">
-                                <input 
-                                    type="text" 
-                                    placeholder="Search locations..." 
-                                    value={searchTerm} 
-                                    onChange={e=>setSearchTerm(e.target.value)} 
-                                    className="p-2 border rounded-lg text-sm w-full sm:w-48 outline-none focus:ring-2 focus:ring-primary focus:border-transparent" 
-                                />
-                                <select 
-                                    value={floorFilter} 
-                                    onChange={e=>setFloorFilter(e.target.value)} 
-                                    className="p-2 border rounded-lg text-sm w-full sm:w-32 outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                                <button
+                                  onClick={() => handleDeleteRoom(room.id)}
+                                  style={{
+                                    backgroundColor: 'transparent',
+                                    border: `0.5px solid #fecaca`,
+                                    color: '#b91c1c',
+                                    borderRadius: '4px',
+                                    padding: '6px',
+                                    cursor: 'pointer',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                  }}
+                                  title="Delete Room"
                                 >
-                                    <option value="">All Floors</option>
-                                    {uniqueFloors.map(floor => (
-                                        <option key={floor} value={floor}>{floor}</option>
-                                    ))}
-                                </select>
-                            </div>
-                        </div>
-
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left border-collapse">
-                                <thead>
-                                    <tr className="bg-gray-50 border-b">
-                                        <th className="p-3.5 text-xs font-bold text-gray-500 uppercase tracking-wider">ID</th>
-                                        <th className="p-3.5 text-xs font-bold text-gray-500 uppercase tracking-wider">Name</th>
-                                        <th className="p-3.5 text-xs font-bold text-gray-500 uppercase tracking-wider">Coordinates (X, Y)</th>
-                                        <th className="p-3.5 text-xs font-bold text-gray-500 uppercase tracking-wider">Floor Elevation</th>
-                                        <th className="p-3.5 text-xs font-bold text-gray-500 uppercase tracking-wider">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {filteredLocations.map(loc => (
-                                        <tr key={loc.id} className="border-b hover:bg-gray-50/55 transition-colors">
-                                            <td className="p-3.5 text-sm text-gray-500">#{loc.id}</td>
-                                            <td className="p-3.5 text-sm font-bold text-gray-800">{loc.name}</td>
-                                            <td className="p-3.5 text-sm text-gray-600 font-mono">({loc.xCoordinate}, {loc.yCoordinate})</td>
-                                            <td className="p-3.5 text-sm">{loc.floor || <span className="text-gray-300 italic">None</span>}</td>
-                                            <td className="p-3.5 flex items-center gap-2">
-                                                <button onClick={() => setEditingLoc(loc)} className="text-primary hover:bg-blue-50 p-2 rounded-lg transition-colors" title="Edit Location">
-                                                    <Edit className="w-4.5 h-4.5" />
-                                                </button>
-                                                <button onClick={() => handleDelete(loc.id)} className="text-red-500 hover:bg-red-50 p-2 rounded-lg transition-colors" title="Delete Location">
-                                                    <Trash2 className="w-4.5 h-4.5" />
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                            {filteredLocations.length === 0 && (
-                                <p className="text-center py-10 text-gray-500 text-sm">
-                                    {locations.length === 0 ? 'No locations configured.' : 'No locations match your search filters.'}
-                                </p>
-                            )}
-                        </div>
-                    </div>
-                </div>
+                                  <Trash2 size={13} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </div>
             )}
 
-            {/* TAB 2: PATH CONNECTIONS & SQL GENERATOR */}
-            {activeTab === 'connections' && (
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-                    
-                    {/* SVG Map Link Selector Column */}
-                    <div className="lg:col-span-8 bg-white p-6 rounded-2xl shadow border border-gray-100 flex flex-col space-y-4">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-100 pb-4">
-                            <div>
-                                <h3 className="text-lg font-bold text-primary">Interactive Room Connect</h3>
-                                <p className="text-xs text-gray-500 mt-0.5">Click any two room circles to establish link pathways</p>
-                            </div>
-                            
-                            {/* Map Floor select Tab list */}
-                            <div className="flex flex-wrap gap-1.5 bg-secondary p-1 rounded-xl">
-                                {['All', ...uniqueFloors].map(floor => (
-                                    <button
-                                        key={floor}
-                                        onClick={() => setActiveMapFloor(floor)}
-                                        className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
-                                            activeMapFloor === floor
-                                                ? 'bg-primary text-white'
-                                                : 'text-primary/70 hover:text-primary hover:bg-white/50'
-                                        }`}
-                                    >
-                                        {floor === 'All' ? 'All Floors' : `Floor ${floor}`}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Blueprint overlay controls */}
-                        <div className="bg-secondary/40 p-3 rounded-xl border border-gray-100 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in duration-200">
-                            <span className="font-bold text-primary/80 shrink-0 flex items-center gap-1"><MapPin className="w-3.5 h-3.5 text-accent"/> Blueprint Image URL:</span>
-                            <input 
-                                type="text" 
-                                placeholder="Paste floor plan image URL to show as overlay underlay (e.g. PNG, SVG)..." 
-                                value={blueprintUrl}
-                                onChange={e => setBlueprintUrl(e.target.value)}
-                                className="w-full p-2 border border-gray-200 rounded-lg outline-none bg-white focus:ring-1 focus:ring-primary focus:border-transparent text-gray-700 text-xs font-mono"
-                            />
-                        </div>
-
-                        {/* Node map container */}
-                        <div className="relative border border-gray-100 rounded-2xl bg-gray-50 overflow-hidden aspect-[8/4.8]">
-                            <svg 
-                                ref={svgRef}
-                                viewBox={`0 0 ${svgWidth} ${svgHeight}`} 
-                                className="w-full h-full select-none"
-                                onPointerMove={handlePointerMove}
-                                onPointerUp={handlePointerUp}
+            {/* 2. FLOORS TABLE */}
+            {activeTab === 'floors' && (
+              <div style={{ overflowX: 'auto' }}>
+                {floors.length === 0 ? (
+                  <div style={{ border: `0.5px solid ${T[100]}`, padding: '40px', textAlign: 'center', fontSize: '13px', color: T[800] }}>
+                    No building floors configured. Click Add Floor to structure campus maps.
+                  </div>
+                ) : (
+                  <table className="admin-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                    <thead>
+                      <tr style={{ backgroundColor: T[50], borderBottom: `0.5px solid ${T[300]}` }}>
+                        <th style={{ padding: '12px 16px', fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', color: T[800] }}>Building Name</th>
+                        <th style={{ padding: '12px 16px', fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', color: T[800] }}>Floor Descriptor</th>
+                        <th style={{ padding: '12px 16px', fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', color: T[800] }}>Floor Index</th>
+                        <th style={{ padding: '12px 16px', fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', color: T[800], textAlign: 'right' }}>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {floors.map(floor => (
+                        <tr key={floor.id} style={{ borderBottom: `0.5px solid ${T[100]}` }}>
+                          <td style={{ padding: '16px', fontSize: '13px', fontWeight: 500, color: T[900] }}>
+                            {floor.building?.name || 'Building'}
+                          </td>
+                          <td style={{ padding: '16px', fontSize: '13px', fontWeight: 400, color: T[900] }}>
+                            {floor.floorName}
+                          </td>
+                          <td style={{ padding: '16px', fontSize: '13px', fontWeight: 400, color: T[800], fontFamily: 'monospace' }}>
+                            {floor.floorNumber}
+                          </td>
+                          <td style={{ padding: '16px', textAlign: 'right' }}>
+                            <button
+                              onClick={() => handleDeleteFloor(floor.id)}
+                              style={{
+                                backgroundColor: 'transparent',
+                                border: `0.5px solid #fecaca`,
+                                color: '#b91c1c',
+                                borderRadius: '4px',
+                                padding: '6px',
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                              }}
+                              title="Delete Floor"
                             >
-                                <defs>
-                                    <pattern id="admin-grid" width="40" height="40" patternUnits="userSpaceOnUse">
-                                        <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#E5ECE9" strokeWidth="1"/>
-                                    </pattern>
-                                </defs>
-                                
-                                {blueprintUrl ? (
-                                    <image 
-                                        href={blueprintUrl} 
-                                        width="100%" 
-                                        height="100%" 
-                                        preserveAspectRatio="xMidYMid slice" 
-                                        opacity="0.8" 
-                                    />
-                                ) : (
-                                    <rect width="100%" height="100%" fill="url(#admin-grid)" />
-                                )}
-
-                                {/* Draw selected draft line indicator */}
-                                {startNode && endNode && (
-                                    <line 
-                                        x1={scaleX(startNode.xCoordinate)}
-                                        y1={scaleY(startNode.yCoordinate)}
-                                        x2={scaleX(endNode.xCoordinate)}
-                                        y2={scaleY(endNode.yCoordinate)}
-                                        stroke="#FB3640"
-                                        strokeWidth="3.5"
-                                        strokeDasharray="6 4"
-                                    />
-                                )}
-
-                                {/* Draw room nodes */}
-                                {locations.map(loc => {
-                                    if (loc.xCoordinate === null || loc.yCoordinate === null) return null;
-
-                                    const cx = scaleX(loc.xCoordinate);
-                                    const cy = scaleY(loc.yCoordinate);
-                                    const isStart = startNode && startNode.id === loc.id;
-                                    const isEnd = endNode && endNode.id === loc.id;
-                                    const isVisible = activeMapFloor === 'All' || loc.floor === activeMapFloor;
-
-                                    let fillCol = '#FFFFFF';
-                                    let strokeCol = '#94A3B8';
-                                    let radius = 7.5;
-
-                                    if (isStart) {
-                                        fillCol = '#22C55E';
-                                        strokeCol = '#86EFAC';
-                                        radius = 9.5;
-                                    } else if (isEnd) {
-                                        fillCol = '#FB3640';
-                                        strokeCol = '#FECACA';
-                                        radius = 9.5;
-                                    }
-
-                                    return (
-                                        <g 
-                                            key={loc.id} 
-                                            onPointerDown={(e) => isVisible && handlePointerDown(e, loc)}
-                                            onClick={() => isVisible && !draggedNode && handleMapNodeClick(loc)}
-                                            className={`cursor-grab active:cursor-grabbing transition-all duration-200 ${
-                                                isVisible ? 'opacity-100' : 'opacity-15'
-                                            }`}
-                                        >
-                                            <circle cx={cx} cy={cy} r={radius + 3} fill="transparent" className="hover:fill-primary/5" />
-                                            <circle cx={cx} cy={cy} r={radius} fill={fillCol} stroke={strokeCol} strokeWidth="2.5" />
-                                            
-                                            {isVisible && !isStart && !isEnd && (
-                                                <text x={cx} y={cy - 11} textAnchor="middle" className="text-[10px] font-bold fill-primary/75 select-none pointer-events-none">
-                                                    {loc.name}
-                                                </text>
-                                            )}
-
-                                            {isVisible && (isStart || isEnd) && (
-                                                <text x={cx} y={cy - 14} textAnchor="middle" className="text-[11px] font-black fill-primary select-none pointer-events-none">
-                                                    {isStart ? 'Node A' : 'Node B'}
-                                                </text>
-                                            )}
-                                        </g>
-                                    );
-                                })}
-                            </svg>
-                        </div>
-                    </div>
-
-                    {/* Seeding query generator columns */}
-                    <div className="lg:col-span-4 bg-white p-6 rounded-2xl shadow border border-gray-100 flex flex-col space-y-5">
-                        <div>
-                            <h3 className="font-bold text-gray-800 text-lg flex items-center gap-1.5"><Database className="text-accent" /> Edge SQL Generator</h3>
-                            <p className="text-xs text-gray-500 mt-0.5">Select two locations on the grid map to build SQL seeds</p>
-                        </div>
-
-                        {/* Selection summary */}
-                        <div className="bg-secondary/45 p-4 rounded-xl space-y-3 border border-gray-100 text-sm">
-                            <div className="flex justify-between items-center pb-2 border-b border-gray-200">
-                                <span className="text-gray-500 font-semibold">Start Location (A):</span>
-                                <span className="font-bold text-primary">{startNode ? startNode.name : <span className="text-gray-400 italic">Select node</span>}</span>
-                            </div>
-                            <div className="flex justify-between items-center pb-2 border-b border-gray-200">
-                                <span className="text-gray-500 font-semibold">Target Location (B):</span>
-                                <span className="font-bold text-accent">{endNode ? endNode.name : <span className="text-gray-400 italic">Select node</span>}</span>
-                            </div>
-                            <div className="flex justify-between items-center">
-                                <span className="text-gray-500 font-semibold">Euclidean Distance:</span>
-                                <span className="font-mono font-bold text-gray-800">{startNode && endNode ? `${calculatedWeight} units` : '--'}</span>
-                            </div>
-                        </div>
-
-                        {/* Generated SQL script area */}
-                        {startNode && endNode ? (
-                            <div className="space-y-3.5">
-                                <div className="flex items-center justify-between">
-                                    <label className="text-xs font-bold text-gray-700 uppercase tracking-wider flex items-center gap-1">
-                                        <Sparkles className="w-3.5 h-3.5 text-accent animate-pulse" /> Auto Seeding SQL Script
-                                    </label>
-                                    <button 
-                                        onClick={() => handleCopySql(generatedSql)}
-                                        className="text-xs font-bold text-primary hover:text-opacity-80 flex items-center gap-1 bg-primary/10 px-2.5 py-1 rounded-lg transition-all"
-                                    >
-                                        {sqlCopySuccess ? (
-                                            <>
-                                                <Check className="w-3.5 h-3.5" />
-                                                Copied!
-                                            </>
-                                        ) : (
-                                            <>
-                                                <Copy className="w-3.5 h-3.5" />
-                                                Copy SQL
-                                            </>
-                                        )}
-                                    </button>
-                                </div>
-                                <textarea 
-                                    readOnly 
-                                    value={generatedSql} 
-                                    rows="5"
-                                    className="w-full p-3 font-mono text-xs bg-gray-900 text-green-400 border rounded-xl outline-none focus:ring-1 focus:ring-primary select-all leading-normal"
-                                />
-                                <div className="text-[10px] text-gray-400 leading-normal bg-blue-50/50 p-3 rounded-lg border border-blue-100 flex gap-1.5">
-                                    <AlertCircle className="w-4 h-4 text-primary shrink-0" />
-                                    <span>
-                                        Execute the query above inside your PostgreSQL terminal (or seed SQL script) to link the rooms!
-                                    </span>
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="py-12 border-2 border-dashed border-gray-200 rounded-2xl flex flex-col items-center justify-center text-center p-4">
-                                <Compass className="w-10 h-10 text-gray-300 animate-spin" style={{ animationDuration: '4s' }} />
-                                <h4 className="text-sm font-bold text-gray-500 mt-3">Select Nodes to Begin</h4>
-                                <p className="text-[11px] text-gray-400 mt-1 max-w-[200px] leading-normal">Click a Start Node, then click another Target Node on the floor grid</p>
-                            </div>
-                        )}
-                    </div>
-                </div>
+                              <Trash2 size={13} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
             )}
 
-            {/* Edit Location Modal */}
-            {editingLoc && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-                    <div className="bg-white p-6 rounded-2xl shadow-xl w-full max-w-md border border-gray-100 animate-in fade-in zoom-in duration-200">
-                        <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-primary">
-                            <Edit className="text-accent"/> Edit Location
-                        </h2>
-                        <form onSubmit={handleEditLocation} className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-1">Location Name</label>
-                                <input 
-                                    type="text" 
-                                    required 
-                                    value={editingLoc.name} 
-                                    onChange={e=>setEditingLoc({...editingLoc, name: e.target.value})} 
-                                    className="w-full p-2 border rounded focus:ring-2 focus:ring-primary focus:border-transparent outline-none" 
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-1">Description</label>
-                                <input 
-                                    type="text" 
-                                    value={editingLoc.description || ''} 
-                                    onChange={e=>setEditingLoc({...editingLoc, description: e.target.value})} 
-                                    className="w-full p-2 border rounded focus:ring-2 focus:ring-primary focus:border-transparent outline-none" 
-                                />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-semibold text-gray-700 mb-1">X Coordinate</label>
-                                    <input 
-                                        type="number" 
-                                        required 
-                                        value={editingLoc.xCoordinate} 
-                                        onChange={e=>setEditingLoc({...editingLoc, xCoordinate: parseInt(e.target.value) || 0})} 
-                                        className="w-full p-2 border rounded focus:ring-2 focus:ring-primary focus:border-transparent outline-none" 
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-semibold text-gray-700 mb-1">Y Coordinate</label>
-                                    <input 
-                                        type="number" 
-                                        required 
-                                        value={editingLoc.yCoordinate} 
-                                        onChange={e=>setEditingLoc({...editingLoc, yCoordinate: parseInt(e.target.value) || 0})} 
-                                        className="w-full p-2 border rounded focus:ring-2 focus:ring-primary focus:border-transparent outline-none" 
-                                    />
-                                </div>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-1">Floor</label>
-                                <input 
-                                    type="text" 
-                                    value={editingLoc.floor || ''} 
-                                    onChange={e=>setEditingLoc({...editingLoc, floor: e.target.value})} 
-                                    className="w-full p-2 border rounded focus:ring-2 focus:ring-primary focus:border-transparent outline-none" 
-                                />
-                            </div>
-                            <div className="flex gap-4 pt-2">
-                                <button 
-                                    type="button" 
-                                    onClick={() => setEditingLoc(null)} 
-                                    className="flex-1 bg-gray-100 text-gray-700 py-2 rounded font-bold hover:bg-gray-200 transition-colors"
-                                >
-                                    Cancel
-                                </button>
-                                <button 
-                                    type="submit" 
-                                    className="flex-1 bg-primary text-white py-2 rounded font-bold hover:bg-opacity-90 transition-colors"
-                                >
-                                    Save Changes
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
+            {/* 3. USERS TABLE */}
+            {activeTab === 'users' && (
+              <div style={{ overflowX: 'auto' }}>
+                <table className="admin-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                  <thead>
+                    <tr style={{ backgroundColor: T[50], borderBottom: `0.5px solid ${T[300]}` }}>
+                      <th style={{ padding: '12px 16px', fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', color: T[800] }}>Account Email</th>
+                      <th style={{ padding: '12px 16px', fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', color: T[800] }}>Authorized Role</th>
+                      <th style={{ padding: '12px 16px', fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', color: T[800], textAlign: 'right' }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {users.map(user => (
+                      <tr key={user.id} style={{ borderBottom: `0.5px solid ${T[100]}` }}>
+                        <td style={{ padding: '16px', fontSize: '13px', fontWeight: 500, color: T[900] }}>
+                          {user.email}
+                        </td>
+                        <td style={{ padding: '16px' }}>
+                          <span style={{
+                            backgroundColor: user.role === 'ROLE_ADMIN' ? T[900] : T[50],
+                            color: user.role === 'ROLE_ADMIN' ? '#ffffff' : T[800],
+                            border: `0.5px solid ${user.role === 'ROLE_ADMIN' ? T[900] : T[100]}`,
+                            padding: '3px 8px',
+                            borderRadius: '4px',
+                            fontSize: '11px',
+                            fontWeight: 500,
+                          }}>
+                            {user.role}
+                          </span>
+                        </td>
+                        <td style={{ padding: '16px', textAlign: 'right' }}>
+                          <button
+                            onClick={() => handleDeleteUser(user.id)}
+                            disabled={user.id === 1}
+                            style={{
+                              backgroundColor: 'transparent',
+                              border: user.id === 1 ? '0.5px solid #e0e0e0' : '0.5px solid #fecaca',
+                              color: user.id === 1 ? '#cccccc' : '#b91c1c',
+                              borderRadius: '4px',
+                              padding: '6px',
+                              cursor: user.id === 1 ? 'not-allowed' : 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                            }}
+                            title="Delete User"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
+
+          </div>
+        )}
+      </main>
+
+      {/* ΓöÇΓöÇ FLAT MODAL DRAWER ΓöÇΓöÇ */}
+      {isModalOpen && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(26, 74, 74, 0.4)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+        }}>
+          <div style={{
+            backgroundColor: '#ffffff',
+            border: `0.5px solid ${T[300]}`,
+            borderRadius: '4px',
+            width: '100%',
+            maxWidth: '500px',
+            padding: '32px',
+            boxShadow: 'none',
+          }}>
+            {/* Modal Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+              <h3 style={{ color: T[900], fontSize: '16px', fontWeight: 500, margin: 0 }}>
+                {activeTab === 'rooms' ? (modalMode === 'add' ? 'Add Room Location' : 'Edit Room Details')
+                  : activeTab === 'floors' ? 'Add Building Floor' : 'Create Admin User'}
+              </h3>
+              <button
+                onClick={() => setIsModalOpen(false)}
+                style={{ backgroundColor: 'transparent', border: 'none', cursor: 'pointer', color: T[600] }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* FORM BODY FOR ROOMS */}
+            {activeTab === 'rooms' && (
+              <form onSubmit={handleRoomSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <label htmlFor="roomName" style={{ fontSize: '11px', fontWeight: 500, color: T[800], textTransform: 'uppercase' }}>Room Name</label>
+                  <input
+                    id="roomName"
+                    type="text"
+                    required
+                    value={roomForm.name}
+                    onChange={e => setRoomForm({ ...roomForm, name: e.target.value })}
+                    placeholder="e.g. Lab 102"
+                    style={{ border: `0.5px solid ${T[300]}`, borderRadius: '4px', padding: '8px 12px', fontSize: '13px', fontWeight: 400, outline: 'none' }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <label htmlFor="roomDesc" style={{ fontSize: '11px', fontWeight: 500, color: T[800], textTransform: 'uppercase' }}>Description</label>
+                  <input
+                    id="roomDesc"
+                    type="text"
+                    value={roomForm.description}
+                    onChange={e => setRoomForm({ ...roomForm, description: e.target.value })}
+                    placeholder="e.g. Physics Department Lab"
+                    style={{ border: `0.5px solid ${T[300]}`, borderRadius: '4px', padding: '8px 12px', fontSize: '13px', fontWeight: 400, outline: 'none' }}
+                  />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <label htmlFor="roomFloor" style={{ fontSize: '11px', fontWeight: 500, color: T[800], textTransform: 'uppercase' }}>Floor Assignment</label>
+                    <select
+                      id="roomFloor"
+                      required
+                      value={roomForm.floorId}
+                      onChange={e => setRoomForm({ ...roomForm, floorId: e.target.value })}
+                      style={{ border: `0.5px solid ${T[300]}`, borderRadius: '4px', padding: '8px 12px', fontSize: '13px', fontWeight: 400, outline: 'none', backgroundColor: '#ffffff' }}
+                    >
+                      {floors.map(fl => (
+                        <option key={fl.id} value={fl.id}>{fl.building?.name} - {fl.floorName}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <label htmlFor="roomStatus" style={{ fontSize: '11px', fontWeight: 500, color: T[800], textTransform: 'uppercase' }}>Availability Status</label>
+                    <select
+                      id="roomStatus"
+                      required
+                      value={roomForm.status}
+                      onChange={e => setRoomForm({ ...roomForm, status: e.target.value })}
+                      style={{ border: `0.5px solid ${T[300]}`, borderRadius: '4px', padding: '8px 12px', fontSize: '13px', fontWeight: 400, outline: 'none', backgroundColor: '#ffffff' }}
+                    >
+                      <option value="Available">Available</option>
+                      <option value="Occupied">Occupied</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <label htmlFor="roomX" style={{ fontSize: '11px', fontWeight: 500, color: T[800], textTransform: 'uppercase' }}>X Grid Position</label>
+                    <input
+                      id="roomX"
+                      type="number"
+                      required
+                      value={roomForm.xCoordinate}
+                      onChange={e => setRoomForm({ ...roomForm, xCoordinate: e.target.value })}
+                      style={{ border: `0.5px solid ${T[300]}`, borderRadius: '4px', padding: '8px 12px', fontSize: '13px', fontWeight: 400, outline: 'none' }}
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <label htmlFor="roomY" style={{ fontSize: '11px', fontWeight: 500, color: T[800], textTransform: 'uppercase' }}>Y Grid Position</label>
+                    <input
+                      id="roomY"
+                      type="number"
+                      required
+                      value={roomForm.yCoordinate}
+                      onChange={e => setRoomForm({ ...roomForm, yCoordinate: e.target.value })}
+                      style={{ border: `0.5px solid ${T[300]}`, borderRadius: '4px', padding: '8px 12px', fontSize: '13px', fontWeight: 400, outline: 'none' }}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '12px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setIsModalOpen(false)}
+                    style={{ backgroundColor: 'transparent', border: `0.5px solid ${T[300]}`, borderRadius: '4px', padding: '8px 16px', fontSize: '13px', color: T[800], cursor: 'pointer' }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    style={{ backgroundColor: T[600], border: `0.5px solid ${T[800]}`, borderRadius: '4px', padding: '8px 16px', fontSize: '13px', color: '#ffffff', cursor: 'pointer' }}
+                  >
+                    Save Changes
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* FORM BODY FOR FLOORS */}
+            {activeTab === 'floors' && (
+              <form onSubmit={handleFloorSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <label htmlFor="floorBuilding" style={{ fontSize: '11px', fontWeight: 500, color: T[800], textTransform: 'uppercase' }}>Building Link</label>
+                  <select
+                    id="floorBuilding"
+                    required
+                    value={floorForm.buildingId}
+                    onChange={e => setFloorForm({ ...floorForm, buildingId: e.target.value })}
+                    style={{ border: `0.5px solid ${T[300]}`, borderRadius: '4px', padding: '8px 12px', fontSize: '13px', fontWeight: 400, outline: 'none', backgroundColor: '#ffffff' }}
+                  >
+                    <option value="">Select Building...</option>
+                    {buildings.map(b => (
+                      <option key={b.id} value={b.id}>{b.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <label htmlFor="floorName" style={{ fontSize: '11px', fontWeight: 500, color: T[800], textTransform: 'uppercase' }}>Floor Name</label>
+                  <input
+                    id="floorName"
+                    type="text"
+                    required
+                    value={floorForm.floorName}
+                    onChange={e => setFloorForm({ ...floorForm, floorName: e.target.value })}
+                    placeholder="e.g. Ground Floor"
+                    style={{ border: `0.5px solid ${T[300]}`, borderRadius: '4px', padding: '8px 12px', fontSize: '13px', fontWeight: 400, outline: 'none' }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <label htmlFor="floorNum" style={{ fontSize: '11px', fontWeight: 500, color: T[800], textTransform: 'uppercase' }}>Floor Index Number</label>
+                  <input
+                    id="floorNum"
+                    type="number"
+                    required
+                    value={floorForm.floorNumber}
+                    onChange={e => setFloorForm({ ...floorForm, floorNumber: e.target.value })}
+                    placeholder="e.g. 0, 1, 2"
+                    style={{ border: `0.5px solid ${T[300]}`, borderRadius: '4px', padding: '8px 12px', fontSize: '13px', fontWeight: 400, outline: 'none' }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '12px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setIsModalOpen(false)}
+                    style={{ backgroundColor: 'transparent', border: `0.5px solid ${T[300]}`, borderRadius: '4px', padding: '8px 16px', fontSize: '13px', color: T[800], cursor: 'pointer' }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    style={{ backgroundColor: T[600], border: `0.5px solid ${T[800]}`, borderRadius: '4px', padding: '8px 16px', fontSize: '13px', color: '#ffffff', cursor: 'pointer' }}
+                  >
+                    Save Floor
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* FORM BODY FOR USERS */}
+            {activeTab === 'users' && (
+              <form onSubmit={handleUserSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <label htmlFor="userEmail" style={{ fontSize: '11px', fontWeight: 500, color: T[800], textTransform: 'uppercase' }}>User Email Address</label>
+                  <input
+                    id="userEmail"
+                    type="email"
+                    required
+                    value={userForm.email}
+                    onChange={e => setUserForm({ ...userForm, email: e.target.value })}
+                    placeholder="e.g. admin-sec@example.com"
+                    style={{ border: `0.5px solid ${T[300]}`, borderRadius: '4px', padding: '8px 12px', fontSize: '13px', fontWeight: 400, outline: 'none' }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <label htmlFor="userRole" style={{ fontSize: '11px', fontWeight: 500, color: T[800], textTransform: 'uppercase' }}>Authorized Role</label>
+                  <select
+                    id="userRole"
+                    required
+                    value={userForm.role}
+                    onChange={e => setUserForm({ ...userForm, role: e.target.value })}
+                    style={{ border: `0.5px solid ${T[300]}`, borderRadius: '4px', padding: '8px 12px', fontSize: '13px', fontWeight: 400, outline: 'none', backgroundColor: '#ffffff' }}
+                  >
+                    <option value="ROLE_USER">ROLE_USER</option>
+                    <option value="ROLE_ADMIN">ROLE_ADMIN</option>
+                  </select>
+                </div>
+
+                <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '12px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setIsModalOpen(false)}
+                    style={{ backgroundColor: 'transparent', border: `0.5px solid ${T[300]}`, borderRadius: '4px', padding: '8px 16px', fontSize: '13px', color: T[800], cursor: 'pointer' }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    style={{ backgroundColor: T[600], border: `0.5px solid ${T[800]}`, borderRadius: '4px', padding: '8px 16px', fontSize: '13px', color: '#ffffff', cursor: 'pointer' }}
+                  >
+                    Add User Account
+                  </button>
+                </div>
+              </form>
+            )}
+
+          </div>
         </div>
-    );
+      )}
+
+    </div>
+  );
 };
 
 export default AdminDashboard;

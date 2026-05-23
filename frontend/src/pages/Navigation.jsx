@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import api from '../services/api';
 import Loader from '../components/Loader';
@@ -13,6 +13,8 @@ const Navigation = () => {
     const [source, setSource] = useState('');
     const [destination, setDestination] = useState('');
     const [path, setPath] = useState([]);
+    const [instructions, setInstructions] = useState([]);
+    const [totalDistance, setTotalDistance] = useState(0);
     const [loading, setLoading] = useState(false);
     const [fetchingData, setFetchingData] = useState(true);
     const [error, setError] = useState('');
@@ -112,9 +114,9 @@ const Navigation = () => {
                             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' ' + new Date().toLocaleDateString(),
                             floors: sourceRoom.floor?.id === destRoom.floor?.id
                                 ? `${sourceRoom.floor?.floorName || 'Unknown Floor'}`
-                                : `${sourceRoom.floor?.floorName || 'Floor'} → ${destRoom.floor?.floorName || 'Floor'}`
+                                : `${sourceRoom.floor?.floorName || 'Floor'} ΓåÆ ${destRoom.floor?.floorName || 'Floor'}`
                         };
-                        
+
                         const isDuplicate = historyArray.some(item => item.sourceId === source && item.destinationId === destination);
                         if (!isDuplicate) {
                             historyArray.unshift(newQuery);
@@ -154,7 +156,7 @@ const Navigation = () => {
                     destinationName: destRoom.name,
                     floorSummary: sourceRoom.floor?.id === destRoom.floor?.id
                         ? `${sourceRoom.floor?.floorName || 'Unknown Floor'}`
-                        : `${sourceRoom.floor?.floorName || 'Floor'} → ${destRoom.floor?.floorName || 'Floor'}`
+                        : `${sourceRoom.floor?.floorName || 'Floor'} ΓåÆ ${destRoom.floor?.floorName || 'Floor'}`
                 });
                 localStorage.setItem(`favorites_${email}`, JSON.stringify(favoritesArray));
                 setIsSaved(true);
@@ -168,6 +170,8 @@ const Navigation = () => {
             setSource(roomIdStr);
             setDestination('');
             setPath([]);
+            setInstructions([]);
+            setTotalDistance(0);
             setError('');
         } else {
             if (source === roomIdStr) {
@@ -182,6 +186,8 @@ const Navigation = () => {
         setSource('');
         setDestination('');
         setPath([]);
+        setInstructions([]);
+        setTotalDistance(0);
         setError('');
         setSelectedMapFloorId('All');
     };

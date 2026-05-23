@@ -1,5 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  darkMode: 'class',
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
@@ -7,6 +8,7 @@ export default {
   theme: {
     extend: {
       colors: {
+        primary: "#0A2463",
         teal: {
           900: "#1a4a4a",  // darkest — navbar/hero/footer bg
           800: "#2a6b6b",  // dark — footer secondary bg
