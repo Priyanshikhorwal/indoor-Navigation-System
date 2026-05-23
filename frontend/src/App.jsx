@@ -6,6 +6,7 @@ import Footer from './components/Footer';
 import Home from './pages/Home';
 import Navigation from './pages/Navigation';
 import Login from './pages/Login';
+import Register from './pages/Register';
 import AdminLogin from './pages/AdminLogin';
 import UserDashboard from './pages/UserDashboard';
 import AdminDashboard from './pages/AdminDashboard';
@@ -24,7 +25,7 @@ function App() {
               <Route path="/navigate" element={<Navigation />} />
               <Route path="/about" element={<About />} />
               <Route path="/login" element={<Login mode="login" />} />
-              <Route path="/register" element={<Login mode="register" />} />
+              <Route path="/register" element={<Register />} />
               <Route path="/admin/login" element={<AdminLogin />} />
               <Route 
                 path="/user-dashboard" 
