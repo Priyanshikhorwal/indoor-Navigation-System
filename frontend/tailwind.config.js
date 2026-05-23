@@ -18,6 +18,7 @@ export default {
           50:  "#eaf7f7",  // lightest — page background
         },
 <<<<<<< HEAD
+<<<<<<< HEAD
         secondary: {
           DEFAULT: "#E8D5C4", // Lightest beige
           dark: "#D8B89C",
@@ -34,6 +35,8 @@ export default {
         iconColor: "#CBD5E1",
 =======
 >>>>>>> 800dc139436582a3d8cf9fe81a373a81aea8de0f
+=======
+>>>>>>> 105537a30c8120dd220da95a7d4abf29fbbec492
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],

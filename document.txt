@@ -192,7 +192,41 @@ B. FRONTEND INTERFACE (React + Vite + Tailwind CSS + Lucide Icons)
    - Once target node is reached, the path is compiled back to source and returned.
 
 5. ROAD GUIDANCE RENDERING:
-   - Ordered list of location nodes is returned to React.
-   - The frontend renders the list in a modern timeline, giving clear step-by-step 
-     directions to the destination.
+    - Ordered list of location nodes is returned to React.
+    - The frontend renders the list in a modern timeline, giving clear step-by-step 
+      directions to the destination.
+================================================================================
+
+================================================================================
+5. RECENT UPDATES & IMPROVEMENTS (MAY 2026)
+================================================================================
+
+A. INTERACTIVE FLOOR MAP & A* ANIMATION CELL BY CELL
+   - Developed a fully interactive visual graph map using SVG in Navigation.jsx.
+   - Normalizes and scales coordinates automatically for any floor plan layout.
+   - Animates the computed A* path step-by-step using glowing flow line transitions with SVG dash-array keyframe animations.
+   - Integrated point-and-click node selection allowing users to easily choose their start and end rooms directly from the map.
+   - Built a dynamic multi-floor transition indicator that inserts guidance prompts when swapping floors (e.g., stairs/elevators).
+
+B. IMAGE-OVERLAY MAP BUILDER & SQL EDGE GENERATOR
+   - Created a dynamic blueprint underlay dashboard in AdminDashboard.jsx.
+   - Admins can paste floor plan URLs and place interactive room markers dynamically with direct drag-and-drop pointer controls.
+   - Integrated automatic Euclidean weight calculations when linking path nodes.
+   - Built an interactive SQL statement generator that produces ready-to-run SEED inserts for fast, copy-paste database population.
+
+C. THE ABOUT & PROJECT INFORMATION PORTAL
+   - Built the complete public '/about' page using the verified premium flat teal theme.
+   - Rendered details of the Development Team with custom initials avatars and linked social credentials (GitHub/LinkedIn).
+   - Showcased a full Technology Stack summary categorized by layers (Frontend, Backend, Database, Security, Algorithm).
+
+D. DYNAMIC INTERACTIVE SEARCH (HERO BAR)
+   - Integrated a flat-design search component directly below the main hero subtitle on the Home page.
+   - Auto-filters and suggests matched locations dynamically in an absolute dropdown menu.
+   - Highlight and scale rooms on the interactive mini-map with real-time feedback on match coordinates.
+
+E. MOBILE RESPONSIVENESS OVERHAUL (375px & 768px BREAKPOINTS)
+   - Re-designed all major views (Home, About, Navigation, Admin console) for absolute visual excellence on mobile and tablet screens.
+   - Handled stacking grid grids into 1-column layouts, wrapping stats indicators into 2x2 cards, and pushing the Navigation sidebar below the interactive SVG canvas.
+   - Configured sidebars inside the Admin dashboard to collapse to the top of the viewport with clean, wrap-enabled horizontal link lists.
+   - Forced tables inside the Admin console to render at a minimum width with container horizontal scrolling, preventing squished text on tiny 320px-375px screens.
 ================================================================================

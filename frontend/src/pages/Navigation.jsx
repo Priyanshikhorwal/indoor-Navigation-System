@@ -1,241 +1,250 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import api from '../services/api';
-import Loader from '../components/Loader';
-import { Navigation2, MapPin, Compass, RotateCcw, Star, ArrowRight, ZoomIn, ZoomOut, Maximize } from 'lucide-react';
+import { Navigation2, MapPin, Compass, RotateCcw, Star, ArrowRight, Loader2 } from 'lucide-react';
 
+// ── Teal Palette ──────────────────────────────────────────────────────────────
+const T = {
+  900: '#1a4a4a',
+  800: '#2a6b6b',
+  600: '#3d8b8b',
+  500: '#5aadad',
+  300: '#8dd4d4',
+  100: '#c4eaea',
+  50:  '#eaf7f7',
+};
 
+// ── Inline Loader ──────────────────────────────────────────────────────────────
+const TealLoader = () => (
+  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '160px' }}>
+    <Loader2 size={28} color={T[500]} style={{ animation: 'spin 1s linear infinite' }} />
+  </div>
+);
+
+// ── Navigation Page ────────────────────────────────────────────────────────────
 const Navigation = () => {
-    const [searchParams] = useSearchParams();
-    const [locations, setLocations] = useState([]);
-    const [floors, setFloors] = useState([]);
-    const [source, setSource] = useState('');
-    const [destination, setDestination] = useState('');
-    const [path, setPath] = useState([]);
-    const [instructions, setInstructions] = useState([]);
-    const [totalDistance, setTotalDistance] = useState(0);
-    const [loading, setLoading] = useState(false);
-    const [fetchingLocs, setFetchingLocs] = useState(true);
-    const [error, setError] = useState('');
-    const [selectedMapFloorId, setSelectedMapFloorId] = useState('All');
-    const [hoveredNode, setHoveredNode] = useState(null);
-    const [isSaved, setIsSaved] = useState(false);
+  const [searchParams] = useSearchParams();
+  const [locations, setLocations]         = useState([]);
+  const [source, setSource]               = useState('');
+  const [destination, setDestination]     = useState('');
+  const [path, setPath]                   = useState([]);
+  const [loading, setLoading]             = useState(false);
+  const [fetchingLocs, setFetchingLocs]   = useState(true);
+  const [error, setError]                 = useState('');
+  const [selectedMapFloor, setSelectedMapFloor] = useState('All');
+  const [hoveredNode, setHoveredNode]     = useState(null);
+  const [isSaved, setIsSaved]             = useState(false);
 
-    // Zoom & Pan states
-    const [zoom, setZoom] = useState(1);
-    const [pan, setPan] = useState({ x: 0, y: 0 });
-    const [isPanning, setIsPanning] = useState(false);
-    const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+  // A* animation state
+  const [animatedPathIndices, setAnimatedPathIndices] = useState(new Set());
+  const animTimerRef = useRef(null);
 
-    useEffect(() => {
-        fetchLocations();
-    }, []);
+  useEffect(() => { fetchLocations(); }, []);
 
-    const fetchLocations = async () => {
-        try {
-            const [locRes, floorRes] = await Promise.all([
-                api.get('/locations'),
-                api.get('/floors')
-            ]);
-            setLocations(locRes.data);
-            setFloors(floorRes.data);
-            setFetchingLocs(false);
-        } catch (err) {
-            setError('Failed to load map data.');
-            setFetchingLocs(false);
-        }
-    };
+  const fetchLocations = async () => {
+    try {
+      const response = await api.get('/locations');
+      setLocations(response.data);
+      setFetchingLocs(false);
+    } catch (err) {
+      setError('Failed to load locations.');
+      setFetchingLocs(false);
+    }
+  };
 
-    const handleFindPath = async (e) => {
-        if (e) e.preventDefault();
-        if (source === destination) {
-            setError('Source and destination cannot be the same.');
-            return;
-        }
-        setLoading(true);
-        setError('');
-        setPath([]);
-        setInstructions([]);
-        setTotalDistance(0);
-        try {
-            const response = await api.get(`/path/find?sourceId=${source}&destinationId=${destination}`);
-            const data = response.data;
-            if (!data.path || data.path.length === 0) {
-                setError('No path found between selected locations.');
-            } else {
-                setPath(data.path);
-                setInstructions(data.instructions || []);
-                setTotalDistance(data.totalDistance || 0);
+  // Animate path reveal cell by cell
+  const animatePath = (pathData) => {
+    if (animTimerRef.current) clearInterval(animTimerRef.current);
+    setAnimatedPathIndices(new Set());
+    let i = 0;
+    animTimerRef.current = setInterval(() => {
+      if (i < pathData.length) {
+        setAnimatedPathIndices(prev => new Set([...prev, i]));
+        i++;
+      } else {
+        clearInterval(animTimerRef.current);
+      }
+    }, 180);
+  };
 
-                // Automatically switch map floor to source floor for visual focus
-                const startLoc = data.path[0];
-                if (startLoc && startLoc.floor) {
-                    setSelectedMapFloorId(startLoc.floor.id);
-                } else {
-                    setSelectedMapFloorId('All');
-                }
+  useEffect(() => { return () => { if (animTimerRef.current) clearInterval(animTimerRef.current); }; }, []);
 
-                // Log search in user history
-                const token = localStorage.getItem('token');
-                const email = localStorage.getItem('email');
-                if (token && email) {
-                    const savedHistory = localStorage.getItem(`history_${email}`);
-                    let historyArray = savedHistory ? JSON.parse(savedHistory) : [];
+  const handleFindPath = async (e) => {
+    if (e) e.preventDefault();
+    if (source === destination) { setError('Source and destination cannot be the same.'); return; }
+    setLoading(true);
+    setError('');
+    setPath([]);
+    setAnimatedPathIndices(new Set());
+    try {
+      const response = await api.get(`/path/find?sourceId=${source}&destinationId=${destination}`);
+      if (response.data.length === 0) {
+        setError('No path found between selected locations.');
+      } else {
+        setPath(response.data);
+        animatePath(response.data);
+        const startLoc = response.data[0];
+        if (startLoc && startLoc.floor) setSelectedMapFloor(startLoc.floor);
+        else setSelectedMapFloor('All');
 
-                    const sourceLoc = locations.find(l => l.id.toString() === source);
-                    const destLoc = locations.find(l => l.id.toString() === destination);
-
-                    if (sourceLoc && destLoc) {
-                        const newQuery = {
-                            sourceId: source,
-                            destinationId: destination,
-                            sourceName: sourceLoc.name,
-                            destinationName: destLoc.name,
-                            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' ' + new Date().toLocaleDateString(),
-                            floors: sourceLoc.floor?.id === destLoc.floor?.id
-                                ? `${sourceLoc.floor?.floorName || 'Unknown Floor'}`
-                                : `${sourceLoc.floor?.floorName || 'Floor A'} → ${destLoc.floor?.floorName || 'Floor B'}`
-                        };
-
-                        const isDuplicate = historyArray.some(item => item.sourceId === source && item.destinationId === destination);
-                        if (!isDuplicate) {
-                            historyArray.unshift(newQuery);
-                            if (historyArray.length > 8) historyArray.pop();
-                            localStorage.setItem(`history_${email}`, JSON.stringify(historyArray));
-                        }
-                    }
-                }
-            }
-        } catch (err) {
-            setError('Failed to find path. Make sure backend is running.');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    // Reset saved state when source/destination changes
-    useEffect(() => {
-        setIsSaved(false);
-    }, [source, destination]);
-
-    // Handle saving favorite route
-    const handleSaveFavorite = () => {
+        // Log search history
+        const token = localStorage.getItem('token');
         const email = localStorage.getItem('email');
-        if (!email) return;
-
-        const savedFavorites = localStorage.getItem(`favorites_${email}`);
-        let favoritesArray = savedFavorites ? JSON.parse(savedFavorites) : [];
-
-        const sourceLoc = locations.find(l => l.id.toString() === source);
-        const destLoc = locations.find(l => l.id.toString() === destination);
-
-        if (sourceLoc && destLoc) {
-            const isAlreadySaved = favoritesArray.some(
-                fav => fav.sourceId === source && fav.destinationId === destination
-            );
-
-            if (!isAlreadySaved) {
-                const newFavorite = {
-                    sourceId: source,
-                    destinationId: destination,
-                    sourceName: sourceLoc.name,
-                    destinationName: destLoc.name,
-                    floorSummary: sourceLoc.floor?.id === destLoc.floor?.id
-                        ? `${sourceLoc.floor?.floorName || 'Unknown Floor'}`
-                        : `${sourceLoc.floor?.floorName || 'Floor A'} → ${destLoc.floor?.floorName || 'Floor B'}`
-                };
-                favoritesArray.push(newFavorite);
-                localStorage.setItem(`favorites_${email}`, JSON.stringify(favoritesArray));
-                setIsSaved(true);
+        if (token && email) {
+          const savedHistory = localStorage.getItem(`history_${email}`);
+          let historyArray = savedHistory ? JSON.parse(savedHistory) : [];
+          const sourceLoc = locations.find(l => l.id.toString() === source);
+          const destLoc = locations.find(l => l.id.toString() === destination);
+          if (sourceLoc && destLoc) {
+            const newQuery = {
+              sourceId: source, destinationId: destination,
+              sourceName: sourceLoc.name, destinationName: destLoc.name,
+              timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' ' + new Date().toLocaleDateString(),
+              floors: sourceLoc.floor === destLoc.floor ? `Floor ${sourceLoc.floor}` : `Floors ${sourceLoc.floor} → ${destLoc.floor}`
+            };
+            const isDuplicate = historyArray.some(item => item.sourceId === source && item.destinationId === destination);
+            if (!isDuplicate) {
+              historyArray.unshift(newQuery);
+              if (historyArray.length > 8) historyArray.pop();
+              localStorage.setItem(`history_${email}`, JSON.stringify(historyArray));
             }
+          }
         }
-    };
+      }
+    } catch (err) {
+      setError('Failed to find path. Make sure backend is running.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    // Prefill coordinates from URL search queries
-    useEffect(() => {
-        const sourceId = searchParams.get('sourceId');
-        const destinationId = searchParams.get('destinationId');
-        if (sourceId && destinationId && locations.length > 0) {
-            setSource(sourceId);
-            setDestination(destinationId);
-        }
-    }, [searchParams, locations]);
+  useEffect(() => { setIsSaved(false); }, [source, destination]);
 
-    const handleNodeClick = (loc) => {
-        const locIdStr = loc.id.toString();
-        if (!source || (source && destination)) {
-            setSource(locIdStr);
-            setDestination('');
-            setPath([]);
-            setInstructions([]);
-            setTotalDistance(0);
-            setError('');
-        } else {
-            if (source === locIdStr) {
-                setError('Source and destination cannot be the same.');
-                return;
-            }
-            setDestination(locIdStr);
-        }
-    };
-
-    const handleReset = () => {
-        setSource('');
-        setDestination('');
-        setPath([]);
-        setInstructions([]);
-        setTotalDistance(0);
-        setError('');
-        setSelectedMapFloorId('All');
-        setZoom(1);
-        setPan({ x: 0, y: 0 });
-    };
-
-    // Calculate path automatically when source and destination are both set via map clicking
-    useEffect(() => {
-        if (source && destination) {
-            handleFindPath();
-        }
-    }, [source, destination]);
-
-    // Zoom & Pan handlers
-    const handlePointerDown = (e) => {
-        if (e.target.tagName === 'svg' || e.target.tagName === 'rect' || e.target.tagName === 'image') {
-            setIsPanning(true);
-            setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
-            e.currentTarget.setPointerCapture(e.pointerId);
-        }
-    };
-
-    const handlePointerMove = (e) => {
-        if (!isPanning) return;
-        setPan({
-            x: e.clientX - panStart.x,
-            y: e.clientY - panStart.y
+  const handleSaveFavorite = () => {
+    const email = localStorage.getItem('email');
+    if (!email) return;
+    const savedFavorites = localStorage.getItem(`favorites_${email}`);
+    let favoritesArray = savedFavorites ? JSON.parse(savedFavorites) : [];
+    const sourceLoc = locations.find(l => l.id.toString() === source);
+    const destLoc = locations.find(l => l.id.toString() === destination);
+    if (sourceLoc && destLoc) {
+      const isAlreadySaved = favoritesArray.some(fav => fav.sourceId === source && fav.destinationId === destination);
+      if (!isAlreadySaved) {
+        favoritesArray.push({
+          sourceId: source, destinationId: destination,
+          sourceName: sourceLoc.name, destinationName: destLoc.name,
+          floorSummary: sourceLoc.floor === destLoc.floor ? `Floor ${sourceLoc.floor}` : `Floors ${sourceLoc.floor} → ${destLoc.floor}`
         });
-    };
+        localStorage.setItem(`favorites_${email}`, JSON.stringify(favoritesArray));
+        setIsSaved(true);
+      }
+    }
+  };
 
-    const handlePointerUp = (e) => {
-        if (isPanning) {
-            setIsPanning(false);
-            e.currentTarget.releasePointerCapture(e.pointerId);
+  useEffect(() => {
+    const sourceId = searchParams.get('sourceId');
+    const destinationId = searchParams.get('destinationId');
+    if (sourceId && destinationId && locations.length > 0) {
+      setSource(sourceId);
+      setDestination(destinationId);
+    }
+  }, [searchParams, locations]);
+
+  const handleNodeClick = (loc) => {
+    const locIdStr = loc.id.toString();
+    if (!source || (source && destination)) {
+      setSource(locIdStr); setDestination(''); setPath([]); setError(''); setAnimatedPathIndices(new Set());
+    } else {
+      if (source === locIdStr) { setError('Source and destination cannot be the same.'); return; }
+      setDestination(locIdStr);
+    }
+  };
+
+  const handleReset = () => {
+    setSource(''); setDestination(''); setPath([]); setError('');
+    setSelectedMapFloor('All'); setAnimatedPathIndices(new Set());
+    if (animTimerRef.current) clearInterval(animTimerRef.current);
+  };
+
+  useEffect(() => { if (source && destination) handleFindPath(); }, [source, destination]);
+
+  const mapFloors = ['All', ...new Set(locations.map(loc => loc.floor).filter(Boolean))];
+
+  // SVG sizing
+  const padding = 60;
+  const svgWidth = 800;
+  const svgHeight = 550;
+  const validLocations = locations.filter(l => l.xCoordinate !== null && l.yCoordinate !== null);
+  const xCoords = validLocations.map(l => l.xCoordinate);
+  const yCoords = validLocations.map(l => l.yCoordinate);
+  const minX = xCoords.length > 0 ? Math.min(...xCoords) : 0;
+  const maxX = xCoords.length > 0 ? Math.max(...xCoords) : 100;
+  const minY = yCoords.length > 0 ? Math.min(...yCoords) : 0;
+  const maxY = yCoords.length > 0 ? Math.max(...yCoords) : 100;
+  const scaleX = (x) => padding + ((x - minX) / (maxX - minX || 1)) * (svgWidth - 2 * padding);
+  const scaleY = (y) => padding + ((y - minY) / (maxY - minY || 1)) * (svgHeight - 2 * padding);
+
+  const isPathActive = path.length > 1;
+
+  // Simulated room status (for demo — toggle based on location id)
+  const getRoomStatus = (loc) => loc.id % 3 === 0 ? 'Occupied' : 'Available';
+
+  // ── Styles ──────────────────────────────────────────────────────────────────
+  const selectStyle = {
+    width: '100%', padding: '10px 12px',
+    border: `0.5px solid ${T[100]}`, borderRadius: '8px',
+    backgroundColor: '#ffffff', color: T[900],
+    fontSize: '13px', fontWeight: 400, fontFamily: 'Inter, system-ui, sans-serif',
+    outline: 'none', cursor: 'pointer',
+    transition: 'border-color 0.18s',
+  };
+
+  const labelStyle = {
+    display: 'flex', alignItems: 'center', gap: '6px',
+    color: T[800], fontSize: '12px', fontWeight: 500,
+    marginBottom: '6px',
+  };
+
+  return (
+    <div className="nav-page-wrapper" style={{
+      backgroundColor: T[50], minHeight: '100vh', fontFamily: 'Inter, system-ui, sans-serif',
+      padding: '40px',
+    }}>
+      {/* Keyframe animations & responsive overrides */}
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes pulse-ring {
+          0% { transform: scale(0.95); opacity: 1; }
+          50% { transform: scale(1.12); opacity: 0.5; }
+          100% { transform: scale(0.95); opacity: 1; }
         }
-    };
+        .marker-pulse { transform-origin: center; animation: pulse-ring 2s infinite ease-in-out; }
+        @keyframes path-flow { to { stroke-dashoffset: -20; } }
+        .route-line-animated { stroke-dasharray: 8 4; animation: path-flow 1s linear infinite; }
 
-    const handleWheel = (e) => {
-        if (e.cancelable) {
-            e.preventDefault();
+        @media (max-width: 768px) {
+          .nav-grid-container {
+            grid-template-columns: 1fr !important;
+            gap: 20px !important;
+          }
+          .nav-sidebar {
+            order: 2 !important;
+          }
+          .nav-map-container {
+            order: 1 !important;
+          }
         }
-        const zoomFactor = 1.1;
-        const nextZoom = e.deltaY < 0 ? Math.min(zoom * zoomFactor, 5) : Math.max(zoom / zoomFactor, 0.5);
-        setZoom(nextZoom);
-    };
+        @media (max-width: 375px) {
+          .nav-page-wrapper {
+            padding: 20px 12px !important;
+          }
+        }
+      `}</style>
 
-    // Unique floors list for tabs
-    const uniqueFloors = [...floors].sort((a, b) => a.floorNumber - b.floorNumber);
-    const activeFloor = floors.find(f => f.id === selectedMapFloorId);
-    const bgMapImageUrl = (selectedMapFloorId !== 'All' && activeFloor?.mapImageUrl) ? `http://localhost:8081${activeFloor.mapImageUrl}` : null;
+      <div style={{ maxWidth: '1280px', margin: '0 auto' }}>
+        <div className="nav-grid-container" style={{ display: 'grid', gridTemplateColumns: '340px 1fr', gap: '24px', alignItems: 'start' }}>
 
+<<<<<<< HEAD
     // SVG coordinates mapping and normalization - absolute coordinates system (identity scaling)
     const svgWidth = 800;
     const svgHeight = 550;
@@ -736,11 +745,492 @@ const Navigation = () => {
                         </div>
 
                     </div>
+=======
+          {/* ═══════════════════════════ LEFT SIDEBAR ═══════════════════════ */}
+          <div className="nav-sidebar" style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+>>>>>>> 105537a30c8120dd220da95a7d4abf29fbbec492
 
+            {/* ── Route Form Card ── */}
+            <div style={{ backgroundColor: '#fff', border: `0.5px solid ${T[100]}`, borderRadius: '12px', overflow: 'hidden' }}>
+              {/* Card header */}
+              <div style={{
+                backgroundColor: T[900], padding: '18px 20px',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Navigation2 size={18} color={T[500]} />
+                  <span style={{ color: T[50], fontSize: '15px', fontWeight: 500 }}>Find Your Route</span>
                 </div>
+                {(source || destination || isPathActive) && (
+                  <button onClick={handleReset} style={{
+                    display: 'flex', alignItems: 'center', gap: '4px',
+                    color: T[300], fontSize: '11px', fontWeight: 500,
+                    border: `0.5px solid ${T[600]}`, borderRadius: '6px',
+                    padding: '4px 10px', background: 'transparent', cursor: 'pointer',
+                    transition: 'background 0.18s',
+                  }}
+                    onMouseEnter={e => e.currentTarget.style.background = T[800]}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                    <RotateCcw size={11} /><span>Clear</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Card body */}
+              <div style={{ padding: '20px' }}>
+                {fetchingLocs ? <TealLoader /> : (
+                  <form onSubmit={handleFindPath} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    {/* Source dropdown */}
+                    <div>
+                      <label style={labelStyle}>
+                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: T[500] }} />
+                        Start Room
+                      </label>
+                      <select required value={source}
+                        onChange={(e) => { setSource(e.target.value); setPath([]); setAnimatedPathIndices(new Set()); }}
+                        style={selectStyle}
+                        onFocus={e => e.target.style.borderColor = T[500]}
+                        onBlur={e => e.target.style.borderColor = T[100]}>
+                        <option value="">Select source...</option>
+                        {locations.map(loc => (
+                          <option key={loc.id} value={loc.id}>
+                            {loc.name} {loc.floor && `(Floor ${loc.floor})`}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Destination dropdown */}
+                    <div>
+                      <label style={labelStyle}>
+                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: T[600] }} />
+                        End Room
+                      </label>
+                      <select required value={destination}
+                        onChange={(e) => { setDestination(e.target.value); setPath([]); setAnimatedPathIndices(new Set()); }}
+                        style={selectStyle}
+                        onFocus={e => e.target.style.borderColor = T[500]}
+                        onBlur={e => e.target.style.borderColor = T[100]}>
+                        <option value="">Select destination...</option>
+                        {locations.map(loc => (
+                          <option key={loc.id} value={loc.id}>
+                            {loc.name} {loc.floor && `(Floor ${loc.floor})`}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Error */}
+                    {error && (
+                      <div style={{
+                        backgroundColor: '#fef2f2', border: `0.5px solid ${T[100]}`,
+                        borderRadius: '8px', padding: '10px 14px',
+                        color: '#b91c1c', fontSize: '12px', fontWeight: 400,
+                      }}>
+                        {error}
+                      </div>
+                    )}
+
+                    {/* Submit button */}
+                    <button type="submit" disabled={loading || !source || !destination}
+                      style={{
+                        width: '100%', padding: '11px',
+                        backgroundColor: (!source || !destination || loading) ? T[100] : T[500],
+                        color: (!source || !destination || loading) ? T[600] : T[50],
+                        border: `0.5px solid ${(!source || !destination || loading) ? T[100] : T[600]}`,
+                        borderRadius: '8px', fontSize: '13px', fontWeight: 500,
+                        cursor: (!source || !destination || loading) ? 'not-allowed' : 'pointer',
+                        fontFamily: 'Inter, system-ui, sans-serif',
+                        transition: 'background-color 0.18s',
+                      }}
+                      onMouseEnter={e => { if (source && destination && !loading) e.currentTarget.style.backgroundColor = T[600]; }}
+                      onMouseLeave={e => { if (source && destination && !loading) e.currentTarget.style.backgroundColor = T[500]; }}>
+                      {loading ? 'Calculating...' : 'Find Shortest Path'}
+                    </button>
+                  </form>
+                )}
+              </div>
             </div>
+
+            {/* ── Tip card ── */}
+            <div style={{
+              backgroundColor: T[50], border: `0.5px solid ${T[100]}`,
+              borderRadius: '10px', padding: '14px 16px',
+              display: 'flex', gap: '10px', alignItems: 'flex-start',
+            }}>
+              <Compass size={16} color={T[500]} style={{ marginTop: '1px', flexShrink: 0 }} />
+              <p style={{ color: T[800], fontSize: '12px', fontWeight: 400, lineHeight: 1.6, margin: 0 }}>
+                <span style={{ fontWeight: 500, color: T[900] }}>Tip:</span> Click any room node on the map to set start/end points directly.
+              </p>
+            </div>
+
+            {/* ── Route Steps Sidebar ── */}
+            {isPathActive && (
+              <div style={{
+                backgroundColor: '#fff', border: `0.5px solid ${T[100]}`,
+                borderRadius: '12px', padding: '20px', overflow: 'hidden',
+              }}>
+                <h2 style={{
+                  display: 'flex', alignItems: 'center', gap: '8px',
+                  color: T[900], fontSize: '14px', fontWeight: 500, marginBottom: '16px',
+                }}>
+                  <MapPin size={15} color={T[500]} />
+                  Route Steps ({path.length} nodes)
+                </h2>
+
+                {/* Save favorite */}
+                {localStorage.getItem('token') && localStorage.getItem('role') === 'ROLE_USER' && (
+                  <button onClick={handleSaveFavorite} disabled={isSaved}
+                    style={{
+                      width: '100%', padding: '8px', marginBottom: '14px',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                      backgroundColor: isSaved ? T[50] : '#fff',
+                      border: `0.5px solid ${isSaved ? T[300] : T[100]}`,
+                      borderRadius: '8px', fontSize: '11px', fontWeight: 500,
+                      color: isSaved ? T[600] : T[800],
+                      cursor: isSaved ? 'default' : 'pointer',
+                      transition: 'border-color 0.18s',
+                      fontFamily: 'Inter, system-ui, sans-serif',
+                    }}
+                    onMouseEnter={e => { if (!isSaved) e.currentTarget.style.borderColor = T[500]; }}
+                    onMouseLeave={e => { if (!isSaved) e.currentTarget.style.borderColor = T[100]; }}>
+                    <Star size={12} color={isSaved ? T[500] : T[600]} fill={isSaved ? T[500] : 'none'} />
+                    {isSaved ? 'Saved to Favorites!' : 'Save Route'}
+                  </button>
+                )}
+
+                {!localStorage.getItem('token') && (
+                  <div style={{
+                    backgroundColor: T[50], border: `0.5px solid ${T[100]}`,
+                    borderRadius: '8px', padding: '12px 14px', marginBottom: '14px',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+                      <Star size={12} color={T[500]} fill={T[500]} />
+                      <span style={{ color: T[900], fontSize: '11px', fontWeight: 500 }}>Save this route</span>
+                    </div>
+                    <p style={{ color: T[600], fontSize: '11px', fontWeight: 400, lineHeight: 1.5, margin: 0 }}>
+                      Log in to save favourite routes.
+                    </p>
+                    <Link to="/login?tab=register" style={{
+                      display: 'inline-flex', alignItems: 'center', gap: '3px',
+                      color: T[500], fontSize: '11px', fontWeight: 500,
+                      textDecoration: 'none', marginTop: '6px',
+                    }}>
+                      <span>Create Account</span><ArrowRight size={10} />
+                    </Link>
+                  </div>
+                )}
+
+                {/* Timeline */}
+                <div style={{ borderLeft: `2px solid ${T[100]}`, marginLeft: '9px', paddingLeft: '18px' }}>
+                  {path.map((loc, index) => {
+                    const showTransition = index > 0 && loc.floor !== path[index - 1].floor;
+                    const isStart = index === 0;
+                    const isEnd   = index === path.length - 1;
+
+                    // Dot color
+                    let dotBg = T[500];
+                    if (isStart) dotBg = T[800];
+                    else if (isEnd) dotBg = T[600];
+
+                    const status = getRoomStatus(loc);
+
+                    return (
+                      <React.Fragment key={index}>
+                        {/* Floor transition */}
+                        {showTransition && (
+                          <div style={{ marginBottom: '14px', position: 'relative' }}>
+                            <div style={{
+                              position: 'absolute', left: '-24px', top: '1px',
+                              width: '10px', height: '10px', borderRadius: '50%',
+                              backgroundColor: T[300], border: `2px solid #fff`,
+                            }} />
+                            <div style={{
+                              backgroundColor: T[50], border: `0.5px solid ${T[100]}`,
+                              borderRadius: '8px', padding: '10px 12px',
+                              display: 'flex', alignItems: 'center', gap: '8px',
+                            }}>
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={T[500]} strokeWidth="2.5">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M8 7l4-4m0 0l4 4m-4-4v18" />
+                              </svg>
+                              <div>
+                                <p style={{ color: T[500], fontSize: '10px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0 }}>
+                                  Floor Transition
+                                </p>
+                                <p style={{ color: T[800], fontSize: '12px', fontWeight: 400, margin: '2px 0 0' }}>
+                                  Go to <span style={{ fontWeight: 500, color: T[900] }}>Floor {loc.floor}</span>
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Step item */}
+                        <div style={{ marginBottom: index < path.length - 1 ? '14px' : '0', position: 'relative' }}>
+                          {/* Timeline dot */}
+                          <div style={{
+                            position: 'absolute', left: '-24px', top: '2px',
+                            width: '10px', height: '10px', borderRadius: '50%',
+                            backgroundColor: dotBg, border: `2px solid #fff`,
+                          }} />
+                          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' }}>
+                            <div>
+                              <p style={{ color: T[900], fontSize: '13px', fontWeight: 500, margin: 0, lineHeight: 1.3 }}>{loc.name}</p>
+                              {loc.description && (
+                                <p style={{ color: T[600], fontSize: '11px', fontWeight: 400, margin: '2px 0 0' }}>{loc.description}</p>
+                              )}
+                              {loc.floor && (
+                                <span style={{
+                                  display: 'inline-block', marginTop: '4px',
+                                  backgroundColor: T[50], border: `0.5px solid ${T[100]}`,
+                                  borderRadius: '4px', padding: '1px 6px',
+                                  fontSize: '10px', fontWeight: 500, color: T[600],
+                                  textTransform: 'uppercase', letterSpacing: '0.06em',
+                                }}>
+                                  Floor {loc.floor}
+                                </span>
+                              )}
+                            </div>
+                            {/* Room status badge */}
+                            <span style={{
+                              flexShrink: 0, marginTop: '2px',
+                              padding: '2px 8px', borderRadius: '4px',
+                              fontSize: '10px', fontWeight: 500,
+                              backgroundColor: status === 'Available' ? T[50] : '#fef2f2',
+                              color: status === 'Available' ? T[600] : '#b91c1c',
+                              border: `0.5px solid ${status === 'Available' ? T[100] : '#fecaca'}`,
+                            }}>
+                              {status}
+                            </span>
+                          </div>
+                        </div>
+                      </React.Fragment>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ════════════════════ RIGHT: MAP CANVAS ═════════════════════════ */}
+          <div className="nav-map-container" style={{
+            backgroundColor: '#fff', border: `0.5px solid ${T[100]}`,
+            borderRadius: '12px', padding: '20px',
+            display: 'flex', flexDirection: 'column', gap: '16px',
+          }}>
+
+            {/* Map header + floor tabs */}
+            <div style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              paddingBottom: '14px', borderBottom: `0.5px solid ${T[100]}`, flexWrap: 'wrap', gap: '12px',
+            }}>
+              <div>
+                <h2 style={{ color: T[900], fontSize: '16px', fontWeight: 500, margin: 0 }}>Interactive Floor Map</h2>
+                <p style={{ color: T[600], fontSize: '12px', fontWeight: 400, margin: '3px 0 0' }}>
+                  Click nodes to set route · Visual pathfinding
+                </p>
+              </div>
+
+              {/* Floor switcher */}
+              <div style={{
+                display: 'flex', gap: '4px',
+                backgroundColor: T[50], border: `0.5px solid ${T[100]}`,
+                borderRadius: '8px', padding: '3px',
+              }}>
+                {mapFloors.map(floor => (
+                  <button key={floor} onClick={() => setSelectedMapFloor(floor)}
+                    style={{
+                      padding: '5px 12px', borderRadius: '6px',
+                      fontSize: '11px', fontWeight: 500,
+                      border: 'none', cursor: 'pointer',
+                      fontFamily: 'Inter, system-ui, sans-serif',
+                      backgroundColor: selectedMapFloor === floor ? T[900] : 'transparent',
+                      color: selectedMapFloor === floor ? T[50] : T[600],
+                      transition: 'background-color 0.18s, color 0.18s',
+                    }}>
+                    {floor === 'All' ? 'All' : `F${floor}`}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* SVG map */}
+            <div style={{
+              position: 'relative', border: `0.5px solid ${T[100]}`,
+              borderRadius: '10px', overflow: 'hidden', backgroundColor: T[50],
+              aspectRatio: '8 / 5.5',
+            }}>
+              {/* Tooltip */}
+              {hoveredNode && (
+                <div style={{
+                  position: 'absolute', zIndex: 30, pointerEvents: 'none',
+                  left: `${(scaleX(hoveredNode.xCoordinate) / svgWidth) * 100}%`,
+                  top: `${(scaleY(hoveredNode.yCoordinate) / svgHeight) * 100 - 12}%`,
+                  transform: 'translate(-50%, -100%)',
+                  backgroundColor: '#fff', border: `0.5px solid ${T[100]}`,
+                  borderRadius: '8px', padding: '10px 12px',
+                }}>
+                  <p style={{ color: T[900], fontSize: '12px', fontWeight: 500, margin: 0 }}>{hoveredNode.name}</p>
+                  {hoveredNode.floor && (
+                    <p style={{ color: T[600], fontSize: '10px', fontWeight: 500, textTransform: 'uppercase', margin: '2px 0 0' }}>
+                      Floor {hoveredNode.floor}
+                    </p>
+                  )}
+                  {hoveredNode.description && (
+                    <p style={{ color: T[600], fontSize: '10px', fontWeight: 400, margin: '3px 0 0', maxWidth: '160px' }}>
+                      {hoveredNode.description}
+                    </p>
+                  )}
+                  <p style={{ color: T[500], fontSize: '9px', fontWeight: 500, marginTop: '5px', fontStyle: 'italic' }}>Click to select</p>
+                </div>
+              )}
+
+              <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} style={{ width: '100%', height: '100%' }}>
+                {/* Grid pattern */}
+                <defs>
+                  <pattern id="teal-grid" width="40" height="40" patternUnits="userSpaceOnUse">
+                    <path d="M 40 0 L 0 0 0 40" fill="none" stroke={T[100]} strokeWidth="0.5" />
+                  </pattern>
+                </defs>
+                <rect width="100%" height="100%" fill="url(#teal-grid)" />
+
+                {/* Path lines — animated cell by cell */}
+                {isPathActive && path.map((loc, idx) => {
+                  if (idx === path.length - 1) return null;
+                  const nextLoc = path[idx + 1];
+                  const isRevealed = animatedPathIndices.has(idx + 1);
+                  const isOnFloor = selectedMapFloor === 'All' ||
+                    (loc.floor === selectedMapFloor && nextLoc.floor === selectedMapFloor);
+
+                  return (
+                    <g key={`path-seg-${idx}`} style={{ opacity: isRevealed ? 1 : 0, transition: 'opacity 0.3s ease' }}>
+                      {/* Glow underlay */}
+                      <line
+                        x1={scaleX(loc.xCoordinate)} y1={scaleY(loc.yCoordinate)}
+                        x2={scaleX(nextLoc.xCoordinate)} y2={scaleY(nextLoc.yCoordinate)}
+                        stroke={T[500]} strokeWidth="8" strokeLinecap="round"
+                        opacity={isOnFloor ? 0.2 : 0.04}
+                      />
+                      {/* Animated dash line */}
+                      <line
+                        x1={scaleX(loc.xCoordinate)} y1={scaleY(loc.yCoordinate)}
+                        x2={scaleX(nextLoc.xCoordinate)} y2={scaleY(nextLoc.yCoordinate)}
+                        stroke={T[500]} strokeWidth="3" strokeLinecap="round"
+                        className="route-line-animated"
+                        opacity={isOnFloor ? 1 : 0.08}
+                      />
+                    </g>
+                  );
+                })}
+
+                {/* Node circles */}
+                {locations.map(loc => {
+                  if (loc.xCoordinate === null || loc.yCoordinate === null) return null;
+
+                  const cx = scaleX(loc.xCoordinate);
+                  const cy = scaleY(loc.yCoordinate);
+                  const isSource = source === loc.id.toString();
+                  const isDest = destination === loc.id.toString();
+                  const isInPath = path.some(p => p.id === loc.id);
+                  const isFloorVisible = selectedMapFloor === 'All' || loc.floor === selectedMapFloor;
+
+                  let fillCol = '#ffffff';
+                  let strokeCol = T[300];
+                  let radius = 7;
+                  const status = getRoomStatus(loc);
+
+                  if (isSource) { fillCol = T[800]; strokeCol = T[300]; radius = 9.5; }
+                  else if (isDest) { fillCol = T[600]; strokeCol = T[100]; radius = 9.5; }
+                  else if (isInPath) { fillCol = T[500]; strokeCol = T[300]; radius = 8; }
+                  else if (status === 'Occupied') { fillCol = '#fef2f2'; strokeCol = '#fecaca'; }
+
+                  return (
+                    <g key={loc.id}
+                      onClick={() => isFloorVisible && handleNodeClick(loc)}
+                      onMouseEnter={() => isFloorVisible && setHoveredNode(loc)}
+                      onMouseLeave={() => setHoveredNode(null)}
+                      style={{
+                        cursor: isFloorVisible ? 'pointer' : 'default',
+                        opacity: isFloorVisible ? 1 : 0.12,
+                        transition: 'opacity 0.2s',
+                      }}>
+                      {/* Pulse ring for source/dest */}
+                      {(isSource || isDest) && isFloorVisible && (
+                        <circle cx={cx} cy={cy} r={radius + 6}
+                          fill="none" stroke={isSource ? T[800] : T[600]}
+                          strokeWidth="1.5" className="marker-pulse" />
+                      )}
+                      {/* Hit area */}
+                      <circle cx={cx} cy={cy} r={radius + 4} fill="transparent" />
+                      {/* Node */}
+                      <circle cx={cx} cy={cy} r={radius}
+                        fill={fillCol} stroke={strokeCol} strokeWidth="2" />
+                      {/* Label */}
+                      {isFloorVisible && !isSource && !isDest && !isInPath && (
+                        <text x={cx} y={cy - 12} textAnchor="middle"
+                          style={{ fontSize: '9px', fontWeight: 500, fill: T[600], pointerEvents: 'none', userSelect: 'none' }}>
+                          {loc.name.length > 10 ? `${loc.name.substring(0, 8)}..` : loc.name}
+                        </text>
+                      )}
+                      {/* Start/End label */}
+                      {isFloorVisible && (isSource || isDest) && (
+                        <text x={cx} y={cy - 16} textAnchor="middle"
+                          style={{ fontSize: '10px', fontWeight: 500, fill: T[900], pointerEvents: 'none', userSelect: 'none' }}>
+                          {isSource ? 'START' : 'END'}
+                        </text>
+                      )}
+                    </g>
+                  );
+                })}
+              </svg>
+
+              {/* Floor label overlay */}
+              <div style={{
+                position: 'absolute', top: '12px', left: '12px',
+                backgroundColor: T[900], color: T[50],
+                borderRadius: '6px', padding: '5px 10px',
+                fontSize: '10px', fontWeight: 500,
+                display: 'flex', alignItems: 'center', gap: '5px',
+                pointerEvents: 'none', userSelect: 'none',
+              }}>
+                <Compass size={11} color={T[500]} />
+                {selectedMapFloor === 'All' ? 'All Floors' : `Floor ${selectedMapFloor}`}
+              </div>
+            </div>
+
+            {/* Legend bar */}
+            <div style={{
+              display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '20px',
+              backgroundColor: T[50], border: `0.5px solid ${T[100]}`,
+              borderRadius: '8px', padding: '10px 16px',
+            }}>
+              {[
+                { color: T[800], label: 'Start' },
+                { color: T[600], label: 'End' },
+                { color: T[500], label: 'Route Node' },
+                { color: '#ffffff', border: T[300], label: 'Available' },
+                { color: '#fef2f2', border: '#fecaca', label: 'Occupied' },
+              ].map(item => (
+                <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <span style={{
+                    width: '10px', height: '10px', borderRadius: '50%',
+                    backgroundColor: item.color, display: 'inline-block',
+                    border: `1.5px solid ${item.border || item.color}`,
+                  }} />
+                  <span style={{ color: T[600], fontSize: '11px', fontWeight: 400 }}>{item.label}</span>
+                </div>
+              ))}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <div style={{ width: '16px', height: '2px', backgroundColor: T[500], borderRadius: '1px' }} />
+                <span style={{ color: T[600], fontSize: '11px', fontWeight: 400 }}>A* Path</span>
+              </div>
+            </div>
+          </div>
+
         </div>
-    );
+      </div>
+    </div>
+  );
 };
 
 export default Navigation;

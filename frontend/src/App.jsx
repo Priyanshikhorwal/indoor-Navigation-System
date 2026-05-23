@@ -9,6 +9,7 @@ import Login from './pages/Login';
 import AdminLogin from './pages/AdminLogin';
 import UserDashboard from './pages/UserDashboard';
 import AdminDashboard from './pages/AdminDashboard';
+import About from './pages/About';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
@@ -21,10 +22,10 @@ function App() {
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/navigate" element={<Navigation />} />
+              <Route path="/about" element={<About />} />
               <Route path="/login" element={<Login mode="login" />} />
               <Route path="/register" element={<Login mode="register" />} />
-              <Route path="/admin-login" element={<AdminLogin mode="login" />} />
-              <Route path="/admin-register" element={<AdminLogin mode="register" />} />
+              <Route path="/admin/login" element={<AdminLogin />} />
               <Route 
                 path="/user-dashboard" 
                 element={
@@ -34,7 +35,7 @@ function App() {
                 } 
               />
               <Route 
-                path="/admin-dashboard" 
+                path="/admin/dashboard" 
                 element={
                   <ProtectedRoute requiredRole="ROLE_ADMIN">
                     <AdminDashboard />

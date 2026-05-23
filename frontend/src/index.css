@@ -53,6 +53,7 @@
     background-color: rgba(93, 173, 173, 0.12);
   }
 
+<<<<<<< HEAD
 }
 /* Cleaned utility classes */
 @layer utilities {
@@ -65,6 +66,8 @@
   .text-slate-500 { @apply text-[#64748B]; }
   .border-slate-200 { @apply border-[#E2E8F0]; }
 
+=======
+>>>>>>> 105537a30c8120dd220da95a7d4abf29fbbec492
   .btn-teal-outline {
     background-color: transparent;
     color: #2a6b6b;
